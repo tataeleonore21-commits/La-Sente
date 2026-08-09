@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La sente de mon poids idéal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #F4F6F3; }
+  body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+  input, textarea, button { font-family: inherit; }
+  textarea { font-family: 'Inter', sans-serif; }
+</style>
+</head>
+<body>
+<div id="root" style="padding:20px;font-family:sans-serif;color:#5A6B62;">Chargement…</div>
+
+<script>
+  window.addEventListener('error', function (e) {
+    var root = document.getElementById('root');
+    if (root) {
+      root.innerHTML = '<div style="padding:20px;font-family:sans-serif;color:#B96B6B;white-space:pre-wrap;font-size:14px;">Erreur : ' +
+        (e.message || 'inconnue') + '<br>Fichier : ' + (e.filename || '?') + ':' + (e.lineno || '?') + '</div>';
+    }
+  });
+  setTimeout(function () {
+    var root = document.getElementById('root');
+    if (root && root.textContent.trim() === 'Chargement…') {
+      var missing = [];
+      if (typeof React === 'undefined') missing.push('React');
+      if (typeof ReactDOM === 'undefined') missing.push('ReactDOM');
+      if (typeof Babel === 'undefined') missing.push('Babel');
+      root.innerHTML = '<div style="padding:20px;font-family:sans-serif;color:#B96B6B;font-size:14px;">' +
+        (missing.length
+          ? 'Ressources non chargées : ' + missing.join(', ') + '. Vérifie ta connexion internet ou réessaie.'
+          : 'Les librairies ont chargé mais l\'application ne s\'est pas lancée. Erreur probable dans le code.') +
+        '</div>';
+    }
+  }, 6000);
+</script>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script>
+// ---- localStorage-backed storage shim (same API shape used during development) ----
+window.storage = {
+  get: async function (key) {
+    const v = localStorage.getItem(key);
+    if (v === null) throw new Error('not found');
+    return { key: key, value: v };
+  },
+  set: async function (key, value) {
+    localStorage.setItem(key, value);
+    return { key: key, value: value };
+  },
+  delete: async function (key) {
+    localStorage.removeItem(key);
+    return { key: key, deleted: true };
+  },
+  list: async function (prefix) {
+    const keys = Object.keys(localStorage).filter(function (k) { return !prefix || k.indexOf(prefix) === 0; });
+    return { keys: keys };
+  }
+};
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo } = React;
+
+const TOKENS = {
+  bg: '#F4F6F3', panel: '#FFFFFF', ink: '#212B26', inkSoft: '#5A6B62',
+  trail: '#1F5C52', trailSoft: '#DCE8E2', ochre: '#C88A2E', ochreSoft: '#F3E3C6',
+  rose: '#B96B6B', roseSoft: '#F1DEDE', line: '#E1E6E1',
+};
+
+const PLAN_START = '2026-08-10';
+const PLAN_END = '2026-12-20';
+const TREATMENT_START = '2026-08-16';
+const TREATMENT_INTERVAL_DAYS = 15;
+const MILESTONES = [2, 5, 7, 10, 12, 15];
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function fmtDate(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
+function fmtDateLong(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+function addDays(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+
+const PLAN_DAYS = daysBetween(PLAN_START, PLAN_END) + 1;
+
+const BREAKFASTS = [
+  { text: "2 œufs brouillés + pain complet + 1/2 avocat", ing: ['Œufs', 'Pain complet', 'Avocat'] },
+  { text: "Yaourt grec + flocons d'avoine + fruits rouges", ing: ['Yaourt grec', "Flocons d'avoine", 'Fruits rouges'] },
+  { text: "Omelette 2 œufs + épinards + pain complet", ing: ['Œufs', 'Épinards', 'Pain complet'] },
+  { text: "Skyr + banane + graines de chia", ing: ['Skyr', 'Banane', 'Graines de chia'] },
+  { text: "Pain complet + fromage blanc + tomates", ing: ['Pain complet', 'Fromage blanc', 'Tomates'] },
+  { text: "2 œufs pochés + toast complet + saumon fumé", ing: ['Œufs', 'Pain complet', 'Saumon fumé'] },
+  { text: "Avocado toast + œuf poché + pain complet", ing: ['Avocat', 'Œufs', 'Pain complet'] },
+];
+const LUNCHES = [
+  { text: "Bowl : poulet froid + riz complet + brocolis + filet de citron", ing: ['Poulet', 'Riz complet', 'Brocolis', 'Citron'] },
+  { text: "Salade : cabillaud froid + riz complet + courgettes rôties froides", ing: ['Cabillaud', 'Riz complet', 'Courgettes'] },
+  { text: "Bowl : crevettes froides + riz complet + poivrons crus", ing: ['Crevettes', 'Riz complet', 'Poivrons'] },
+  { text: "Salade : bœuf maigre froid + couac + salade verte + tomates", ing: ['Bœuf maigre', 'Couac', 'Salade verte', 'Tomates'] },
+  { text: "Salade : thon + pâtes complètes froides + tomates cerises", ing: ['Thon', 'Pâtes complètes', 'Tomates cerises'] },
+  { text: "Bowl : sardines + riz complet + poivrons + filet de citron", ing: ['Sardines', 'Riz complet', 'Poivrons', 'Citron'] },
+  { text: "Bowl : crevettes + avocat + riz complet + salade verte", ing: ['Crevettes', 'Avocat', 'Riz complet', 'Salade verte'] },
+];
+const DINNERS = [
+  { text: "Poisson blanc vapeur + légumes verts + un peu de riz", ing: ['Poisson blanc', 'Légumes verts', 'Riz complet'] },
+  { text: "Salade de poulet grillé + légumes + vinaigrette légère", ing: ['Poulet', 'Salade verte', 'Vinaigrette légère'] },
+  { text: "Omelette aux légumes + salade verte", ing: ['Œufs', 'Légumes', 'Salade verte'] },
+  { text: "Sardines grillées + légumes rôtis", ing: ['Sardines', 'Légumes rôtis'] },
+  { text: "Salade de thon, avocat + légumes", ing: ['Thon', 'Avocat', 'Salade verte'] },
+  { text: "Crevettes + courgettes sautées + un peu de riz", ing: ['Crevettes', 'Courgettes', 'Riz complet'] },
+  { text: "Salade de saumon fumé, avocat + légumes", ing: ['Saumon fumé', 'Avocat', 'Salade verte'] },
+];
+const SNACKS = [
+  { text: "Fromage blanc + amandes", ing: ['Fromage blanc', 'Amandes'] },
+  { text: "1 fruit + poignée de noix", ing: ['Fruit de saison', 'Noix'] },
+  { text: "Yaourt grec nature", ing: ['Yaourt grec'] },
+  { text: "Œuf dur", ing: ['Œufs'] },
+  { text: "Avocat + un filet de citron", ing: ['Avocat', 'Citron'] },
+  { text: "Skyr nature", ing: ['Skyr'] },
+  { text: "Crevettes froides + citron", ing: ['Crevettes', 'Citron'] },
+];
+const MEAL_ARR = { breakfast: BREAKFASTS, lunch: LUNCHES, snack: SNACKS, dinner: DINNERS };
+const MEAL_OFFSET = { breakfast: 0, lunch: 7, snack: 3, dinner: 13 };
+const MEAL_LABELS = { breakfast: 'Petit-déjeuner', lunch: 'Déjeuner', snack: 'Collation', dinner: 'Dîner' };
+const MEAL_ICONS = { breakfast: '☀', lunch: '◐', snack: '◇', dinner: '☾' };
+const MEAL_KCAL = { breakfast: '~350 kcal', lunch: '~500 kcal', snack: '~150 kcal', dinner: '~450 kcal' };
+
+function defaultIdx(type, dayIndex) { return (dayIndex + MEAL_OFFSET[type]) % MEAL_ARR[type].length; }
+function getMeal(type, dayIndex, overrides) {
+  const arr = MEAL_ARR[type];
+  const key = `${dayIndex}_${type}`;
+  const idx = overrides[key] !== undefined ? overrides[key] % arr.length : defaultIdx(type, dayIndex);
+  return { ...arr[idx], idx };
+}
+function mealsForDay(dayIndex, overrides) {
+  return {
+    breakfast: getMeal('breakfast', dayIndex, overrides),
+    lunch: getMeal('lunch', dayIndex, overrides),
+    snack: getMeal('snack', dayIndex, overrides),
+    dinner: getMeal('dinner', dayIndex, overrides),
+  };
+}
+
+const ING_CATEGORY = {
+  'Œufs': 'Protéines', 'Yaourt grec': 'Protéines', 'Skyr': 'Protéines', 'Fromage blanc': 'Protéines',
+  'Saumon fumé': 'Protéines', 'Jambon blanc': 'Protéines', 'Poulet': 'Protéines', 'Cabillaud': 'Protéines',
+  'Dinde': 'Protéines', 'Saumon': 'Protéines', 'Crevettes': 'Protéines',
+  'Bœuf maigre': 'Protéines', 'Thon': 'Protéines', 'Steak haché 5%': 'Protéines', 'Colin': 'Protéines',
+  'Sardines': 'Protéines', 'Poisson blanc': 'Protéines', 'Feta légère': 'Protéines', 'Fromage frais léger': 'Protéines',
+  'Pain complet': 'Féculents', "Flocons d'avoine": 'Féculents', 'Muesli': 'Féculents', 'Granola': 'Féculents',
+  'Sarrasin': 'Féculents', 'Riz complet': 'Féculents', 'Patate douce': 'Féculents', 'Lentilles': 'Féculents',
+  'Couac': 'Féculents', 'Pâtes complètes': 'Féculents', 'Nouilles de riz': 'Féculents', 'Riz basmati': 'Féculents',
+  'Pois chiches': 'Féculents',
+  'Avocat': 'Légumes & fruits', 'Fruits rouges': 'Légumes & fruits', 'Tomates': 'Légumes & fruits', 'Pomme': 'Légumes & fruits',
+  'Kiwi': 'Légumes & fruits', 'Compote sans sucre': 'Légumes & fruits', 'Tomates cerises': 'Légumes & fruits',
+  'Champignons': 'Légumes & fruits', 'Poire': 'Légumes & fruits', 'Myrtilles': 'Légumes & fruits', 'Banane': 'Légumes & fruits',
+  'Épinards': 'Légumes & fruits', 'Brocolis': 'Légumes & fruits', 'Courgettes': 'Légumes & fruits', 'Haricots verts': 'Légumes & fruits',
+  'Légumes sautés': 'Légumes & fruits', 'Poivrons': 'Légumes & fruits', 'Salade verte': 'Légumes & fruits',
+  'Ratatouille (légumes)': 'Légumes & fruits', 'Carottes': 'Légumes & fruits', 'Légumes rôtis': 'Légumes & fruits',
+  'Légumes verts': 'Légumes & fruits', 'Légumes (soupe)': 'Légumes & fruits', 'Légumes': 'Légumes & fruits',
+  'Légumes vapeur': 'Légumes & fruits', 'Salade composée (légumes)': 'Légumes & fruits', 'Fruit de saison': 'Légumes & fruits',
+  'Légumes (bâtonnets)': 'Légumes & fruits', 'Citron': 'Légumes & fruits',
+  'Graines de chia': 'Épicerie', 'Lait écrémé': 'Épicerie', 'Cannelle': 'Épicerie', 'Amandes': 'Épicerie',
+  'Lait': 'Épicerie', 'Beurre de cacahuète': 'Épicerie', "Lait d'amande": 'Épicerie',
+  'Fruits secs': 'Épicerie', 'Graines de courge': 'Épicerie', 'Gingembre': 'Épicerie', 'Vinaigrette légère': 'Épicerie',
+  'Noix': 'Épicerie',
+};
+function categoryOf(name) { return ING_CATEGORY[name] || 'Épicerie'; }
+const TOTAL_WEEKS = Math.ceil(PLAN_DAYS / 7);
+
+function weekIngredients(weekIndex, overrides) {
+  const start = weekIndex * 7;
+  const end = Math.min(start + 6, PLAN_DAYS - 1);
+  const set = new Set();
+  for (let d = start; d <= end; d++) {
+    const m = mealsForDay(d, overrides);
+    [m.breakfast, m.lunch, m.snack, m.dinner].forEach(meal => meal.ing.forEach(i => set.add(i)));
+  }
+  const byCat = {};
+  [...set].sort().forEach(name => { const cat = categoryOf(name); (byCat[cat] = byCat[cat] || []).push(name); });
+  return byCat;
+}
+function weekRangeLabel(weekIndex) {
+  const start = new Date(PLAN_START + 'T00:00:00'); start.setDate(start.getDate() + weekIndex * 7);
+  const end = new Date(start); end.setDate(end.getDate() + Math.min(6, PLAN_DAYS - 1 - weekIndex * 7));
+  const fmt = d => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+// ---- Lightweight icon component (emoji/symbol based, no external deps) ----
+function Ic({ name, size = 16, color = 'currentColor', style, onClick }) {
+  const map = {
+    plus: '+', x: '✕', check: '✓', chevronLeft: '‹', chevronRight: '›',
+    chevronUp: '▴', chevronDown: '▾', clock: '🕐', calendar: '📅',
+    syringe: '💉', share: '📤', party: '🎉', refresh: '↻', download: '⬇',
+    note: '📝', trendUp: '↑', trendDown: '↓', minus: '–',
+    mountain: '⛰', cart: '🛒', utensils: '🍽', footprints: '👣', heart: '❤',
+    rotate: '↺',
+  };
+  return <span onClick={onClick} style={{ fontSize: size, lineHeight: 1, color: color, display: 'inline-block', ...style }}>{map[name] || '•'}</span>;
+}
+
+// ---- Lightweight SVG line chart (no external deps) ----
+function MiniChart({ data, lines, height = 160, refLine }) {
+  if (!data || data.length < 2) return null;
+  const width = 400;
+  const pad = { top: 10, right: 8, bottom: 20, left: 8 };
+  let vals = [];
+  data.forEach(d => lines.forEach(l => { if (d[l.key] != null) vals.push(d[l.key]); }));
+  if (refLine != null) vals.push(refLine);
+  if (!vals.length) return null;
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (min === max) { min -= 1; max += 1; }
+  const pd = (max - min) * 0.18;
+  min -= pd; max += pd;
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const x = i => pad.left + (i / (data.length - 1)) * plotW;
+  const y = v => pad.top + plotH - ((v - min) / (max - min)) * plotH;
+  const tickEvery = Math.max(1, Math.ceil(data.length / 5));
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: height, display: 'block' }}>
+      {refLine != null && <line x1={pad.left} x2={width - pad.right} y1={y(refLine)} y2={y(refLine)} stroke={TOKENS.ochre} strokeDasharray="4 4" strokeWidth="1.5" />}
+      {lines.map(l => {
+        const pts = data.map((d, i) => (d[l.key] != null ? `${x(i)},${y(d[l.key])}` : null)).filter(Boolean);
+        if (pts.length < 2) return null;
+        return <polyline key={l.key} points={pts.join(' ')} fill="none" stroke={l.color} strokeWidth={l.width || 2} strokeLinecap="round" strokeLinejoin="round" />;
+      })}
+      {lines.map(l => data.map((d, i) => d[l.key] != null ? <circle key={l.key + i} cx={x(i)} cy={y(d[l.key])} r={l.width && l.width > 2 ? 3 : 2} fill={l.color} /> : null))}
+      {data.map((d, i) => (i === 0 || i === data.length - 1 || i % tickEvery === 0) ? (
+        <text key={'t' + i} x={x(i)} y={height - 4} fontSize="9" fill={TOKENS.inkSoft} textAnchor="middle">{d.date}</text>
+      ) : null)}
+    </svg>
+  );
+}
+
+function TrailProgress({ pct, startW, currentW, goalW }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const pathD = 'M 10 90 C 60 90, 70 40, 130 55 S 220 20, 280 25 S 350 65, 390 15';
+  const markerX = 10 + clamped * 3.8;
+  const markerY = 90 - Math.sin((clamped / 100) * Math.PI * 0.9) * 70;
+  return (
+    <div style={{ background: TOKENS.trail, borderRadius: 20, padding: '22px 20px 16px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, opacity: 0.08, background: 'radial-gradient(circle at 80% 0%, white, transparent 60%)' }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
+        <div>
+          <div style={{ fontFamily: 'Inter', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#BFE0D6' }}>La sente de mon poids idéal</div>
+          <div style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 26, color: 'white', marginTop: 2 }}>{(startW - currentW).toFixed(1)} kg parcourus</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontFamily: 'Inter', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#BFE0D6' }}>Objectif</div>
+          <div style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 22, color: TOKENS.ochreSoft }}>{goalW} kg</div>
+        </div>
+      </div>
+      <svg viewBox="0 0 400 110" style={{ width: '100%', height: 100, marginTop: 10 }}>
+        <path d={pathD} fill="none" stroke="#3D7A6F" strokeWidth="4" strokeLinecap="round" />
+        <path d={pathD} fill="none" stroke={TOKENS.ochre} strokeWidth="4" strokeLinecap="round" strokeDasharray="600" strokeDashoffset={600 - (clamped / 100) * 600} />
+        <circle cx="10" cy="90" r="6" fill="white" />
+        <circle cx="390" cy="15" r="6" fill="none" stroke="white" strokeWidth="2" />
+        <g transform={`translate(${markerX}, ${markerY})`}><circle r="9" fill={TOKENS.ochre} stroke="white" strokeWidth="2.5" /></g>
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'Inter', fontSize: 11, color: '#BFE0D6' }}>
+        <span>Départ · {startW} kg</span><span>{clamped.toFixed(0)}% du chemin</span><span>Sommet · {goalW} kg</span>
+      </div>
+    </div>
+  );
+}
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: 'white', borderRadius: '20px 20px 0 0', padding: 22, width: '100%', maxWidth: 480, maxHeight: '85vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 17 }}>{title}</span>
+          <Ic name="x" size={20} onClick={onClose} style={{ cursor: 'pointer', color: TOKENS.inkSoft }} />
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ShareModal({ title, text, onClose }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { setCopied(false); }
+  }
+  return (
+    <Modal title={title} onClose={onClose}>
+      <textarea readOnly value={text} style={{ width: '100%', boxSizing: 'border-box', height: 220, fontFamily: 'Inter', fontSize: 13, padding: 12, borderRadius: 10, border: `1.5px solid ${TOKENS.line}`, resize: 'none' }} onClick={e => e.target.select()} />
+      <button onClick={copy} style={{ marginTop: 12, width: '100%', background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 12, padding: '13px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <Ic name="share" size={16} /> {copied ? 'Copié !' : 'Copier le texte'}
+      </button>
+      <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8, textAlign: 'center' }}>Si le bouton ne fonctionne pas, touche le texte pour le sélectionner puis copie-le.</div>
+    </Modal>
+  );
+}
+
+const inputStyle = { width: '100%', boxSizing: 'border-box', fontSize: 20, fontFamily: 'Fraunces', padding: '12px 14px', borderRadius: 12, border: `1.5px solid ${TOKENS.line}`, outline: 'none' };
+const btnStyle = { marginTop: 12, width: '100%', background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 12, padding: '13px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer' };
+const sectionTitle = { fontFamily: 'Fraunces', fontSize: 16, fontWeight: 600 };
+const addBtn = { display: 'flex', alignItems: 'center', gap: 4, background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' };
+
+function CheckBox({ checked }) {
+  return (
+    <div style={{ width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${checked ? TOKENS.trail : TOKENS.line}`, background: checked ? TOKENS.trail : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {checked && <Ic name="check" size={12} color="white" />}
+    </div>
+  );
+}
+function ToggleAll({ show, onClick }) {
+  return (
+    <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: TOKENS.trail, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '4px 0' }}>
+      <Ic name={show ? 'chevronUp' : 'chevronDown'} size={13} /> {show ? 'Réduire' : 'Voir tout'}
+    </button>
+  );
+}
+function TrendBadge({ trend, label }) {
+  if (!trend) return <span style={{ color: TOKENS.inkSoft, fontWeight: 500 }}>{label} —</span>;
+  const iconName = trend === 'baisse' ? 'trendDown' : trend === 'hausse' ? 'trendUp' : 'minus';
+  const color = trend === 'baisse' ? TOKENS.trail : trend === 'hausse' ? TOKENS.rose : TOKENS.inkSoft;
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color }}>{label} <Ic name={iconName} size={12} /></span>;
+}
+function navBtnStyle(disabled) {
+  return { background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 10, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 };
+}
+
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [weightLog, setWeightLog] = useState([]);
+  const [activityLog, setActivityLog] = useState([]);
+  const [tensionLog, setTensionLog] = useState([]);
+  const [cholesterolLog, setCholesterolLog] = useState([]);
+  const [measurementsLog, setMeasurementsLog] = useState([]);
+  const [treatmentLog, setTreatmentLog] = useState([]);
+  const [groceryChecked, setGroceryChecked] = useState({});
+  const [groceryCustom, setGroceryCustom] = useState({});
+  const [mealOverrides, setMealOverrides] = useState({});
+  const [dayStatus, setDayStatus] = useState({});
+  const [milestonesSeen, setMilestonesSeen] = useState([]);
+  const [doctorNotes, setDoctorNotes] = useState('');
+  const [tab, setTab] = useState('poids');
+  const [modal, setModal] = useState(null);
+  const [saveError, setSaveError] = useState(false);
+  const [showAllWeight, setShowAllWeight] = useState(false);
+  const [showAllActivity, setShowAllActivity] = useState(false);
+  const [showAllTension, setShowAllTension] = useState(false);
+  const [showAllCholesterol, setShowAllCholesterol] = useState(false);
+  const [showAllMeasurements, setShowAllMeasurements] = useState(false);
+
+  const [wInput, setWInput] = useState('');
+  const [aSteps, setASteps] = useState('');
+  const [aDuration, setADuration] = useState('');
+  const [aNote, setANote] = useState('');
+  const [tSys, setTSys] = useState('');
+  const [tDia, setTDia] = useState('');
+  const [tPulse, setTPulse] = useState('');
+  const [cTotal, setCTotal] = useState('');
+  const [cLdl, setCLdl] = useState('');
+  const [cHdl, setCHdl] = useState('');
+  const [mWaist, setMWaist] = useState('');
+  const [mHips, setMHips] = useState('');
+  const [mChest, setMChest] = useState('');
+  const [mGlutes, setMGlutes] = useState('');
+  const [mThighs, setMThighs] = useState('');
+  const [mKnee, setMKnee] = useState('');
+  const [gItem, setGItem] = useState('');
+
+  const [dayIndex, setDayIndex] = useState(() => Math.max(0, Math.min(PLAN_DAYS - 1, daysBetween(PLAN_START, todayISO()))));
+  const [weekIndex, setWeekIndex] = useState(() => Math.max(0, Math.min(TOTAL_WEEKS - 1, Math.floor(daysBetween(PLAN_START, todayISO()) / 7))));
+
+  useEffect(() => {
+    (async () => {
+      try {
+        let p;
+        try { p = JSON.parse((await window.storage.get('profile-eleonore')).value); }
+        catch { p = { startWeight: 70.45, startDate: todayISO(), goalWeight: 60.45, goalDate: '2027-01-01' }; }
+        setProfile(p);
+        window.storage.set('profile-eleonore', JSON.stringify(p)).catch(() => setSaveError(true));
+
+        let wLog;
+        try { wLog = JSON.parse((await window.storage.get('weight-log')).value); }
+        catch { wLog = [{ date: p.startDate, weight: p.startWeight }]; }
+        setWeightLog(wLog);
+        window.storage.set('weight-log', JSON.stringify(wLog)).catch(() => setSaveError(true));
+
+        try { setActivityLog(JSON.parse((await window.storage.get('activity-log')).value)); } catch { setActivityLog([]); }
+        try { setTensionLog(JSON.parse((await window.storage.get('tension-log')).value)); } catch { setTensionLog([]); }
+        try { setCholesterolLog(JSON.parse((await window.storage.get('cholesterol-log')).value)); } catch { setCholesterolLog([]); }
+        try { setMeasurementsLog(JSON.parse((await window.storage.get('measurements-log')).value)); } catch { setMeasurementsLog([]); }
+        try { setTreatmentLog(JSON.parse((await window.storage.get('treatment-log')).value)); } catch { setTreatmentLog([]); }
+        try { setGroceryChecked(JSON.parse((await window.storage.get('groceries-checked')).value)); } catch { setGroceryChecked({}); }
+        try { setGroceryCustom(JSON.parse((await window.storage.get('groceries-custom')).value)); } catch { setGroceryCustom({}); }
+        try { setMealOverrides(JSON.parse((await window.storage.get('meal-overrides')).value)); } catch { setMealOverrides({}); }
+        try { setDayStatus(JSON.parse((await window.storage.get('day-status')).value)); } catch { setDayStatus({}); }
+        try { setMilestonesSeen(JSON.parse((await window.storage.get('milestones-seen')).value)); } catch { setMilestonesSeen([]); }
+        try { setDoctorNotes((await window.storage.get('doctor-notes')).value); } catch { setDoctorNotes(''); }
+      } catch { setSaveError(true); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  const save = async (key, val, setter) => {
+    setter(val);
+    try { await window.storage.set(key, typeof val === 'string' ? val : JSON.stringify(val)); } catch { setSaveError(true); }
+  };
+
+  const currentWeight = useMemo(() => {
+    if (!weightLog.length) return profile?.startWeight ?? 0;
+    return [...weightLog].sort((a, b) => new Date(b.date) - new Date(a.date))[0].weight;
+  }, [weightLog, profile]);
+  const lastWeighIn = useMemo(() => weightLog.length ? [...weightLog].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date : null, [weightLog]);
+  const daysSinceWeighIn = lastWeighIn ? daysBetween(lastWeighIn, todayISO()) : 99;
+  const canWeighIn = daysSinceWeighIn >= 7;
+  const pct = useMemo(() => {
+    if (!profile) return 0;
+    const total = profile.startWeight - profile.goalWeight;
+    if (total <= 0) return 0;
+    return ((profile.startWeight - currentWeight) / total) * 100;
+  }, [profile, currentWeight]);
+  const daysLeft = profile ? daysBetween(todayISO(), profile.goalDate) : 0;
+  const lostSoFar = profile ? +(profile.startWeight - currentWeight).toFixed(1) : 0;
+
+  const newMilestone = useMemo(() => {
+    const achieved = MILESTONES.filter(m => lostSoFar >= m);
+    const unseen = achieved.filter(m => !milestonesSeen.includes(m));
+    return unseen.length ? Math.max(...unseen) : null;
+  }, [lostSoFar, milestonesSeen]);
+
+  async function dismissMilestone() {
+    const achieved = MILESTONES.filter(m => lostSoFar >= m);
+    await save('milestones-seen', [...new Set([...milestonesSeen, ...achieved])], setMilestonesSeen);
+  }
+
+  async function addWeight() {
+    const w = parseFloat(wInput.replace(',', '.'));
+    if (!w || w <= 0 || w > 300) return;
+    const entry = { date: todayISO(), weight: w };
+    const updated = [...weightLog.filter(e => e.date !== entry.date), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    await save('weight-log', updated, setWeightLog);
+    setWInput(''); setModal(null);
+  }
+  async function addActivity() {
+    const s = parseInt(aSteps, 10) || 0;
+    const dur = parseInt(aDuration, 10) || 0;
+    if (!s && !dur && !aNote.trim()) return;
+    const entry = { date: todayISO(), steps: s, duration: dur, note: aNote.trim() };
+    const updated = [...activityLog.filter(e => e.date !== entry.date), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    await save('activity-log', updated, setActivityLog);
+    setASteps(''); setADuration(''); setANote(''); setModal(null);
+  }
+  async function addTension() {
+    const sys = parseInt(tSys, 10), dia = parseInt(tDia, 10);
+    if (!sys || !dia) return;
+    const entry = { date: todayISO(), sys, dia, pulse: tPulse ? parseInt(tPulse, 10) : null };
+    const updated = [...tensionLog.filter(e => e.date !== entry.date), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    await save('tension-log', updated, setTensionLog);
+    setTSys(''); setTDia(''); setTPulse(''); setModal(null);
+  }
+  async function addCholesterol() {
+    const t = parseFloat(cTotal.replace(',', '.'));
+    if (!t || t <= 0) return;
+    const entry = { date: todayISO(), total: t, ldl: cLdl ? parseFloat(cLdl.replace(',', '.')) : null, hdl: cHdl ? parseFloat(cHdl.replace(',', '.')) : null };
+    const updated = [...cholesterolLog.filter(e => e.date !== entry.date), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    await save('cholesterol-log', updated, setCholesterolLog);
+    setCTotal(''); setCLdl(''); setCHdl(''); setModal(null);
+  }
+  async function addMeasurement() {
+    const waist = mWaist ? parseFloat(mWaist.replace(',', '.')) : null;
+    const hips = mHips ? parseFloat(mHips.replace(',', '.')) : null;
+    const chest = mChest ? parseFloat(mChest.replace(',', '.')) : null;
+    const glutes = mGlutes ? parseFloat(mGlutes.replace(',', '.')) : null;
+    const thighs = mThighs ? parseFloat(mThighs.replace(',', '.')) : null;
+    const knee = mKnee ? parseFloat(mKnee.replace(',', '.')) : null;
+    if (!waist && !hips && !chest && !glutes && !thighs && !knee) return;
+    const entry = { date: todayISO(), waist, hips, chest, glutes, thighs, knee };
+    const updated = [...measurementsLog.filter(e => e.date !== entry.date), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    await save('measurements-log', updated, setMeasurementsLog);
+    setMWaist(''); setMHips(''); setMChest(''); setMGlutes(''); setMThighs(''); setMKnee(''); setModal(null);
+  }
+  async function logInjection() {
+    const entry = { date: todayISO() };
+    const updated = [...treatmentLog.filter(e => e.date !== entry.date), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    await save('treatment-log', updated, setTreatmentLog);
+  }
+  async function toggleGrocery(key) { await save('groceries-checked', { ...groceryChecked, [key]: !groceryChecked[key] }, setGroceryChecked); }
+  async function addGroceryItem() {
+    if (!gItem.trim()) return;
+    const list = groceryCustom[weekIndex] || [];
+    await save('groceries-custom', { ...groceryCustom, [weekIndex]: [...list, { id: `c-${Date.now()}`, name: gItem.trim() }] }, setGroceryCustom);
+    setGItem('');
+  }
+  async function resetWeekChecks() {
+    const updated = { ...groceryChecked };
+    Object.keys(updated).forEach(k => { if (k.startsWith(`${weekIndex}|`)) delete updated[k]; });
+    await save('groceries-checked', updated, setGroceryChecked);
+  }
+  async function swapMeal(type) {
+    const current = getMeal(type, dayIndex, mealOverrides);
+    const arr = MEAL_ARR[type];
+    const nextIdx = (current.idx + 1) % arr.length;
+    await save('meal-overrides', { ...mealOverrides, [`${dayIndex}_${type}`]: nextIdx }, setMealOverrides);
+  }
+  async function setDayStatusFor(date, status) {
+    await save('day-status', { ...dayStatus, [date]: status }, setDayStatus);
+  }
+
+  const planDate = useMemo(() => { const d = new Date(PLAN_START + 'T00:00:00'); d.setDate(d.getDate() + dayIndex); return d; }, [dayIndex]);
+  const planWeekday = planDate.toLocaleDateString('fr-FR', { weekday: 'long' });
+  const planDateLabel = planDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  const planDateISO = planDate.toISOString().slice(0, 10);
+  const todayDayIndex = Math.max(0, Math.min(PLAN_DAYS - 1, daysBetween(PLAN_START, todayISO())));
+  const dayMeals = useMemo(() => mealsForDay(dayIndex, mealOverrides), [dayIndex, mealOverrides]);
+  const weekGroceries = useMemo(() => weekIngredients(weekIndex, mealOverrides), [weekIndex, mealOverrides]);
+  const customForWeek = groceryCustom[weekIndex] || [];
+
+  const weightSorted = useMemo(() => [...weightLog].sort((a, b) => new Date(b.date) - new Date(a.date)), [weightLog]);
+  const tensionSorted = useMemo(() => [...tensionLog].sort((a, b) => new Date(b.date) - new Date(a.date)), [tensionLog]);
+  const cholesterolSorted = useMemo(() => [...cholesterolLog].sort((a, b) => new Date(b.date) - new Date(a.date)), [cholesterolLog]);
+  const measurementsSorted = useMemo(() => [...measurementsLog].sort((a, b) => new Date(b.date) - new Date(a.date)), [measurementsLog]);
+  const activitySorted = useMemo(() => [...activityLog].sort((a, b) => new Date(b.date) - new Date(a.date)), [activityLog]);
+
+  const weightChart = useMemo(() => weightLog.map(e => ({ date: fmtDate(e.date), poids: e.weight })), [weightLog]);
+  const tensionChart = useMemo(() => tensionLog.slice(-14).map(e => ({ date: fmtDate(e.date), sys: e.sys, dia: e.dia })), [tensionLog]);
+  const cholesterolChart = useMemo(() => cholesterolLog.slice(-14).map(e => ({ date: fmtDate(e.date), total: e.total, ldl: e.ldl, hdl: e.hdl })), [cholesterolLog]);
+  const measurementsChart = useMemo(() => measurementsLog.slice(-14).map(e => ({ date: fmtDate(e.date), taille: e.waist, hanches: e.hips, poitrine: e.chest })), [measurementsLog]);
+
+  const nextInjection = useMemo(() => {
+    if (!treatmentLog.length) return TREATMENT_START;
+    const last = [...treatmentLog].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date;
+    return addDays(last, TREATMENT_INTERVAL_DAYS);
+  }, [treatmentLog]);
+  const daysUntilInjection = daysBetween(todayISO(), nextInjection);
+  const injectionDueSoon = daysUntilInjection <= 0;
+
+  const bilan = useMemo(() => {
+    const since = addDays(todayISO(), -30);
+    const wIn = weightLog.filter(e => e.date >= since).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const weightDelta = wIn.length >= 2 ? +(wIn[wIn.length - 1].weight - wIn[0].weight).toFixed(1) : null;
+    const weeksSpan = wIn.length >= 2 ? Math.max(1, daysBetween(wIn[0].date, wIn[wIn.length - 1].date) / 7) : null;
+    const weeklyAvg = weightDelta !== null ? +(weightDelta / weeksSpan).toFixed(2) : null;
+
+    const actIn = activityLog.filter(e => e.date >= since);
+    const activeDays = actIn.filter(e => e.steps > 0 || e.note).length;
+
+    const statusIn = Object.entries(dayStatus).filter(([d]) => d >= since);
+    const suiviDays = statusIn.filter(([, v]) => v === 'suivi').length;
+
+    function trend(log, key) {
+      const inRange = log.filter(e => e.date >= since).sort((a, b) => new Date(a.date) - new Date(b.date));
+      if (inRange.length < 2) return null;
+      const diff = inRange[inRange.length - 1][key] - inRange[0][key];
+      if (Math.abs(diff) < (key === 'sys' || key === 'total' ? 3 : 1)) return 'stable';
+      return diff > 0 ? 'hausse' : 'baisse';
+    }
+    return {
+      weeklyAvg, activeDays, suiviDays,
+      tensionTrend: trend(tensionLog, 'sys'),
+      cholesterolTrend: trend(cholesterolLog, 'total'),
+    };
+  }, [weightLog, activityLog, dayStatus, tensionLog, cholesterolLog]);
+
+  function groceryText() {
+    const lines = [`Liste de courses · Semaine ${weekIndex + 1} (${weekRangeLabel(weekIndex)})`, ''];
+    ['Protéines', 'Légumes & fruits', 'Féculents', 'Épicerie'].forEach(cat => {
+      if (weekGroceries[cat]) { lines.push(cat + ' :'); weekGroceries[cat].forEach(n => lines.push('- ' + n)); lines.push(''); }
+    });
+    if (customForWeek.length) { lines.push('Ajoutés :'); customForWeek.forEach(i => lines.push('- ' + i.name)); }
+    return lines.join('\n');
+  }
+  function exportAllData() {
+    const dump = { profile, weightLog, activityLog, tensionLog, cholesterolLog, measurementsLog, treatmentLog, groceryChecked, groceryCustom, mealOverrides, dayStatus, milestonesSeen, doctorNotes, exportedAt: todayISO() };
+    return JSON.stringify(dump, null, 2);
+  }
+
+  if (loading || !profile) {
+    return (
+      <div style={{ background: TOKENS.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter' }}>
+        <div style={{ color: TOKENS.inkSoft }}>{saveError ? "Impossible de charger tes données. Réessaie dans un instant." : 'Chargement du sentier…'}</div>
+      </div>
+    );
+  }
+
+  const TABS = [
+    { id: 'poids', label: 'Poids', icon: 'mountain' },
+    { id: 'courses', label: 'Courses', icon: 'cart' },
+    { id: 'repas', label: 'Repas', icon: 'utensils' },
+    { id: 'activite', label: 'Activité', icon: 'footprints' },
+    { id: 'sante', label: 'Santé', icon: 'heart' },
+  ];
+
+  const currentDayStatus = dayStatus[planDateISO];
+
+  return (
+    <div style={{ background: TOKENS.bg, minHeight: '100vh', fontFamily: 'Inter', color: TOKENS.ink, paddingBottom: 90 }}>
+
+      {injectionDueSoon && (
+        <div style={{ background: TOKENS.rose, color: 'white', padding: '9px 16px', textAlign: 'center', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+          <Ic name="syringe" size={15} /> {daysUntilInjection === 0 ? "Injection Repatha prévue aujourd'hui" : `Injection Repatha en retard de ${-daysUntilInjection} j`}
+        </div>
+      )}
+
+      {newMilestone && (
+        <div style={{ background: TOKENS.ochre, color: 'white', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Ic name="party" size={18} />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Bravo, {newMilestone} kg perdus depuis le départ !</span>
+          </div>
+          <Ic name="x" size={16} onClick={dismissMilestone} style={{ cursor: 'pointer', flexShrink: 0 }} />
+        </div>
+      )}
+
+      <div style={{ maxWidth: 480, margin: '0 auto', padding: '20px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: TOKENS.inkSoft }}>Objectif au</div>
+            <div style={{ fontFamily: 'Fraunces', fontSize: 20, fontWeight: 600 }}>1 janvier 2027</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: 'Fraunces', fontSize: 28, fontWeight: 700, color: TOKENS.trail }}>{daysLeft}</div>
+            <div style={{ fontSize: 11, color: TOKENS.inkSoft }}>jours restants</div>
+          </div>
+        </div>
+
+        <TrailProgress pct={pct} startW={profile.startWeight} currentW={currentWeight} goalW={profile.goalWeight} />
+
+        {saveError && (
+          <div style={{ marginTop: 10, fontSize: 12, color: TOKENS.rose, background: TOKENS.roseSoft, padding: '8px 12px', borderRadius: 10 }}>
+            La sauvegarde a échoué — tes données restent visibles ici mais pourraient ne pas persister.
+          </div>
+        )}
+
+        {/* POIDS */}
+        {tab === 'poids' && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ background: TOKENS.trailSoft, borderRadius: 16, padding: 16, marginBottom: 12 }}>
+              <div style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 14, color: TOKENS.trail, marginBottom: 8 }}>Bilan des 30 derniers jours</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
+                <div>
+                  <div style={{ color: TOKENS.inkSoft }}>Évolution / semaine</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{bilan.weeklyAvg !== null ? `${bilan.weeklyAvg > 0 ? '+' : ''}${bilan.weeklyAvg} kg` : '—'}</div>
+                </div>
+                <div>
+                  <div style={{ color: TOKENS.inkSoft }}>Jours actifs</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{bilan.activeDays} / 30</div>
+                </div>
+                <div>
+                  <div style={{ color: TOKENS.inkSoft }}>Jours repas suivi</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{bilan.suiviDays}</div>
+                </div>
+                <div>
+                  <div style={{ color: TOKENS.inkSoft }}>Tension / cholestérol</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <TrendBadge trend={bilan.tensionTrend} label="TA" />
+                    <TrendBadge trend={bilan.cholesterolTrend} label="Chol." />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={sectionTitle}>Pesée hebdomadaire</span>
+                <button onClick={() => canWeighIn && setModal('poids')} disabled={!canWeighIn} style={{ ...addBtn, background: canWeighIn ? TOKENS.trail : TOKENS.line, color: canWeighIn ? 'white' : TOKENS.inkSoft, cursor: canWeighIn ? 'pointer' : 'default' }}>
+                  <Ic name="plus" size={14} /> Peser
+                </button>
+              </div>
+              {!canWeighIn && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: TOKENS.inkSoft, marginBottom: 10 }}>
+                  <Ic name="clock" size={13} /> Prochaine pesée conseillée dans {7 - daysSinceWeighIn} jour{7 - daysSinceWeighIn > 1 ? 's' : ''} — une fois par semaine suffit.
+                </div>
+              )}
+              {weightChart.length > 1 ? (
+                <MiniChart data={weightChart} lines={[{ key: 'poids', color: TOKENS.trail, width: 2.5 }]} refLine={profile.goalWeight} height={180} />
+              ) : (<div style={{ fontSize: 13, color: TOKENS.inkSoft, padding: '16px 0', textAlign: 'center' }}>Une deuxième pesée fera apparaître ta courbe.</div>)}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <div style={{ flex: 1, background: TOKENS.trailSoft, borderRadius: 14, padding: 12 }}>
+                <div style={{ fontSize: 11, color: TOKENS.inkSoft }}>Poids actuel</div>
+                <div style={{ fontFamily: 'Fraunces', fontSize: 20, fontWeight: 700, color: TOKENS.trail }}>{currentWeight} kg</div>
+              </div>
+              <div style={{ flex: 1, background: TOKENS.ochreSoft, borderRadius: 14, padding: 12 }}>
+                <div style={{ fontSize: 11, color: TOKENS.inkSoft }}>Reste à perdre</div>
+                <div style={{ fontFamily: 'Fraunces', fontSize: 20, fontWeight: 700, color: TOKENS.ochre }}>{Math.max(0, (currentWeight - profile.goalWeight)).toFixed(1)} kg</div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: TOKENS.inkSoft }}>Journal</div>
+                {weightSorted.length > 8 && <ToggleAll show={showAllWeight} onClick={() => setShowAllWeight(v => !v)} />}
+              </div>
+              {(showAllWeight ? weightSorted : weightSorted.slice(0, 8)).map((e, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 4px', borderBottom: `1px solid ${TOKENS.line}`, fontSize: 13 }}>
+                  <span style={{ color: TOKENS.inkSoft }}>{fmtDate(e.date)}</span><span style={{ fontWeight: 600 }}>{e.weight} kg</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16, marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={sectionTitle}>Mesures corporelles</span>
+                <button onClick={() => setModal('mesures')} style={addBtn}><Ic name="plus" size={14} /> Noter</button>
+              </div>
+              {measurementsChart.length > 1 ? (
+                <MiniChart data={measurementsChart} lines={[
+                  { key: 'taille', color: TOKENS.trail, width: 2.5 },
+                  { key: 'hanches', color: TOKENS.ochre, width: 1.5 },
+                  { key: 'poitrine', color: TOKENS.rose, width: 1.5 },
+                ]} height={150} />
+              ) : (<div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '10px 0' }}>Deux mesures feront apparaître la courbe.</div>)}
+              <div style={{ marginTop: 4 }}>
+                {(showAllMeasurements ? measurementsSorted : measurementsSorted.slice(0, 6)).map((e, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 4px', fontSize: 13, borderTop: `1px solid ${TOKENS.line}` }}>
+                    <span style={{ color: TOKENS.inkSoft }}>{fmtDate(e.date)}</span>
+                    <span style={{ fontWeight: 600 }}>{e.waist ? `Taille ${e.waist}cm` : ''}{e.hips ? ` · Hanches ${e.hips}cm` : ''}{e.chest ? ` · Poitrine ${e.chest}cm` : ''}{e.glutes ? ` · Fesses ${e.glutes}cm` : ''}{e.thighs ? ` · Cuisses ${e.thighs}cm` : ''}{e.knee ? ` · Genou ${e.knee}cm` : ''}</span>
+                  </div>
+                ))}
+              </div>
+              {measurementsSorted.length > 6 && <ToggleAll show={showAllMeasurements} onClick={() => setShowAllMeasurements(v => !v)} />}
+            </div>
+          </div>
+        )}
+
+        {/* COURSES */}
+        {tab === 'courses' && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ background: TOKENS.trail, borderRadius: 16, padding: '14px 16px', color: 'white', marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button onClick={() => setWeekIndex(w => Math.max(0, w - 1))} disabled={weekIndex === 0} style={navBtnStyle(weekIndex === 0)}><Ic name="chevronLeft" size={17} color="white" /></button>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: '#BFE0D6' }}>Semaine {weekIndex + 1} / {TOTAL_WEEKS}</div>
+                  <div style={{ fontFamily: 'Fraunces', fontSize: 16, fontWeight: 700 }}>{weekRangeLabel(weekIndex)}</div>
+                </div>
+                <button onClick={() => setWeekIndex(w => Math.min(TOTAL_WEEKS - 1, w + 1))} disabled={weekIndex === TOTAL_WEEKS - 1} style={navBtnStyle(weekIndex === TOTAL_WEEKS - 1)}><Ic name="chevronRight" size={17} color="white" /></button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input value={gItem} onChange={e => setGItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addGroceryItem()} placeholder="Ajouter un article…" style={{ flex: 1, boxSizing: 'border-box', fontSize: 14, padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${TOKENS.line}`, outline: 'none' }} />
+              <button onClick={addGroceryItem} style={{ background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 10, padding: '0 14px', cursor: 'pointer' }}><Ic name="plus" size={16} /></button>
+            </div>
+
+            {['Protéines', 'Légumes & fruits', 'Féculents', 'Épicerie'].map(cat => (
+              weekGroceries[cat] ? (
+                <div key={cat} style={{ background: TOKENS.panel, borderRadius: 14, padding: 14, marginBottom: 10 }}>
+                  <div style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 14, marginBottom: 8, color: TOKENS.trail }}>{cat}</div>
+                  {weekGroceries[cat].map(name => {
+                    const key = `${weekIndex}|${name}`; const checked = !!groceryChecked[key];
+                    return (
+                      <div key={key} onClick={() => toggleGrocery(key)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 2px', cursor: 'pointer' }}>
+                        <CheckBox checked={checked} />
+                        <span style={{ fontSize: 14, textDecoration: checked ? 'line-through' : 'none', color: checked ? TOKENS.inkSoft : TOKENS.ink }}>{name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null
+            ))}
+
+            {customForWeek.length > 0 && (
+              <div style={{ background: TOKENS.panel, borderRadius: 14, padding: 14, marginBottom: 10 }}>
+                <div style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 14, marginBottom: 8, color: TOKENS.trail }}>Ajoutés</div>
+                {customForWeek.map(item => {
+                  const key = `${weekIndex}|${item.name}`; const checked = !!groceryChecked[key];
+                  return (
+                    <div key={item.id} onClick={() => toggleGrocery(key)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 2px', cursor: 'pointer' }}>
+                      <CheckBox checked={checked} />
+                      <span style={{ fontSize: 14, textDecoration: checked ? 'line-through' : 'none', color: checked ? TOKENS.inkSoft : TOKENS.ink }}>{item.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button onClick={() => setModal('share-groceries')} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 12, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                <Ic name="share" size={14} /> Partager
+              </button>
+              <button onClick={resetWeekChecks} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', background: 'transparent', border: `1.5px solid ${TOKENS.line}`, borderRadius: 12, padding: '10px 0', fontSize: 13, color: TOKENS.inkSoft, cursor: 'pointer' }}>
+                <Ic name="rotate" size={14} /> Décocher
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* REPAS */}
+        {tab === 'repas' && (
+          <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ background: TOKENS.trail, borderRadius: 16, padding: '14px 16px', color: 'white' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button onClick={() => setDayIndex(d => Math.max(0, d - 1))} disabled={dayIndex === 0} style={navBtnStyle(dayIndex === 0)}><Ic name="chevronLeft" size={17} color="white" /></button>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: '#BFE0D6', letterSpacing: '0.06em', textTransform: 'capitalize' }}>Jour {dayIndex + 1} / {PLAN_DAYS} · {planWeekday}</div>
+                  <div style={{ fontFamily: 'Fraunces', fontSize: 18, fontWeight: 700, textTransform: 'capitalize' }}>{planDateLabel}</div>
+                </div>
+                <button onClick={() => setDayIndex(d => Math.min(PLAN_DAYS - 1, d + 1))} disabled={dayIndex === PLAN_DAYS - 1} style={navBtnStyle(dayIndex === PLAN_DAYS - 1)}><Ic name="chevronRight" size={17} color="white" /></button>
+              </div>
+              <div style={{ height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 4, marginTop: 12, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${((dayIndex + 1) / PLAN_DAYS) * 100}%`, background: TOKENS.ochre, borderRadius: 4 }} />
+              </div>
+              {dayIndex !== todayDayIndex && (
+                <button onClick={() => setDayIndex(todayDayIndex)} style={{ display: 'flex', alignItems: 'center', gap: 5, margin: '10px auto 0', background: 'none', border: 'none', color: '#BFE0D6', fontSize: 12, cursor: 'pointer' }}>
+                  <Ic name="calendar" size={13} /> Revenir à aujourd'hui
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['suivi', 'libre'].map(s => (
+                <button key={s} onClick={() => setDayStatusFor(planDateISO, currentDayStatus === s ? null : s)} style={{
+                  flex: 1, padding: '9px 0', borderRadius: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  border: `1.5px solid ${currentDayStatus === s ? TOKENS.trail : TOKENS.line}`,
+                  background: currentDayStatus === s ? TOKENS.trailSoft : TOKENS.panel, color: currentDayStatus === s ? TOKENS.trail : TOKENS.inkSoft,
+                }}>
+                  {s === 'suivi' ? '✓ Repas suivi' : 'Jour libre'}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', background: TOKENS.panel, borderRadius: 14, padding: '10px 16px' }}>
+              <div><div style={{ fontSize: 10, color: TOKENS.inkSoft }}>Cible</div><div style={{ fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14 }}>~1550 kcal</div></div>
+              <div style={{ textAlign: 'right' }}><div style={{ fontSize: 10, color: TOKENS.inkSoft }}>Protéines</div><div style={{ fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14 }}>110–115 g</div></div>
+            </div>
+            <div style={{ fontSize: 11, color: TOKENS.inkSoft, background: TOKENS.trailSoft, borderRadius: 10, padding: '8px 12px' }}>
+              Déjeuners pensés froids et à emporter — prépare-les la veille pour tes journées au bloc.
+            </div>
+
+            {['breakfast', 'lunch', 'snack', 'dinner'].map(type => (
+              <div key={type} style={{ background: TOKENS.panel, borderRadius: 14, padding: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 15 }}>{MEAL_ICONS[type]} &nbsp;{MEAL_LABELS[type]}</span>
+                  <span style={{ fontSize: 11, color: TOKENS.inkSoft }}>{MEAL_KCAL[type]}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, fontSize: 13, alignItems: 'flex-start', marginTop: 8 }}>
+                  <Ic name="check" size={14} color={TOKENS.trail} style={{ marginTop: 2, flexShrink: 0 }} /><span>{dayMeals[type].text}</span>
+                </div>
+                <button onClick={() => swapMeal(type)} style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, background: 'none', border: 'none', color: TOKENS.trail, fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+                  <Ic name="refresh" size={12} /> Changer ce repas
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ACTIVITE */}
+        {tab === 'activite' && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={sectionTitle}>Journal d'activité</span>
+                <button onClick={() => setModal('activite')} style={addBtn}><Ic name="plus" size={14} /> Ajouter</button>
+              </div>
+              {activityLog.length === 0 && <div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '10px 0' }}>Aucune activité notée pour l'instant.</div>}
+              {(showAllActivity ? activitySorted : activitySorted.slice(0, 10)).map((e, i) => (
+                <div key={i} style={{ padding: '10px 4px', borderBottom: `1px solid ${TOKENS.line}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span style={{ color: TOKENS.inkSoft }}>{fmtDate(e.date)}</span>
+                    <span style={{ fontWeight: 600, display: 'flex', gap: 8 }}>
+                      {e.steps > 0 && <span>{e.steps.toLocaleString('fr-FR')} pas</span>}
+                      {e.duration > 0 && <span>{e.duration} min</span>}
+                    </span>
+                  </div>
+                  {e.note && <div style={{ fontSize: 13, marginTop: 2 }}>{e.note}</div>}
+                </div>
+              ))}
+              {activitySorted.length > 10 && <ToggleAll show={showAllActivity} onClick={() => setShowAllActivity(v => !v)} />}
+            </div>
+          </div>
+        )}
+
+        {/* SANTE */}
+        {tab === 'sante' && (
+          <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ background: injectionDueSoon ? TOKENS.rose : TOKENS.trail, borderRadius: 16, padding: 16, color: 'white' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Ic name="syringe" size={17} />
+                <span style={{ fontFamily: 'Fraunces', fontSize: 16, fontWeight: 600 }}>Traitement · Repatha</span>
+              </div>
+              <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                  <div style={{ fontSize: 11, opacity: 0.85 }}>{injectionDueSoon ? 'Injection prévue' : 'Prochaine injection'}</div>
+                  <div style={{ fontFamily: 'Fraunces', fontSize: 18, fontWeight: 700, textTransform: 'capitalize' }}>{fmtDateLong(nextInjection)}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: 'Fraunces', fontSize: 22, fontWeight: 700 }}>{daysUntilInjection >= 0 ? daysUntilInjection : `+${-daysUntilInjection}`}</div>
+                  <div style={{ fontSize: 10, opacity: 0.85 }}>{daysUntilInjection >= 0 ? `jour${daysUntilInjection > 1 ? 's' : ''}` : 'jours de retard'}</div>
+                </div>
+              </div>
+              <button onClick={logInjection} style={{ marginTop: 12, width: '100%', background: 'rgba(255,255,255,0.18)', color: 'white', border: 'none', borderRadius: 10, padding: '10px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Injection faite aujourd'hui
+              </button>
+              {treatmentLog.length > 0 && (
+                <div style={{ marginTop: 10, fontSize: 11, opacity: 0.85 }}>Dernière injection : {fmtDate([...treatmentLog].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date)}</div>
+              )}
+            </div>
+
+            <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={sectionTitle}>Tension artérielle</span>
+                <button onClick={() => setModal('tension')} style={addBtn}><Ic name="plus" size={14} /> Noter</button>
+              </div>
+              {tensionChart.length > 1 ? (
+                <MiniChart data={tensionChart} lines={[
+                  { key: 'sys', color: TOKENS.rose, width: 2 },
+                  { key: 'dia', color: TOKENS.trail, width: 2 },
+                ]} height={150} />
+              ) : (<div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '10px 0' }}>Deux mesures feront apparaître la courbe.</div>)}
+              <div style={{ marginTop: 4 }}>
+                {(showAllTension ? tensionSorted : tensionSorted.slice(0, 6)).map((e, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 4px', fontSize: 13, borderTop: `1px solid ${TOKENS.line}` }}>
+                    <span style={{ color: TOKENS.inkSoft }}>{fmtDate(e.date)}</span>
+                    <span style={{ fontWeight: 600 }}>{e.sys}/{e.dia}{e.pulse ? ` · ${e.pulse} bpm` : ''}</span>
+                  </div>
+                ))}
+              </div>
+              {tensionSorted.length > 6 && <ToggleAll show={showAllTension} onClick={() => setShowAllTension(v => !v)} />}
+            </div>
+
+            <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={sectionTitle}>Cholestérol</span>
+                <button onClick={() => setModal('cholesterol')} style={addBtn}><Ic name="plus" size={14} /> Noter</button>
+              </div>
+              {cholesterolChart.length > 1 ? (
+                <MiniChart data={cholesterolChart} lines={[
+                  { key: 'total', color: TOKENS.ochre, width: 2.5 },
+                  { key: 'ldl', color: TOKENS.rose, width: 1.5 },
+                  { key: 'hdl', color: TOKENS.trail, width: 1.5 },
+                ]} height={150} />
+              ) : (<div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '10px 0' }}>Deux mesures feront apparaître la courbe.</div>)}
+              <div style={{ marginTop: 4 }}>
+                {(showAllCholesterol ? cholesterolSorted : cholesterolSorted.slice(0, 6)).map((e, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 4px', fontSize: 13, borderTop: `1px solid ${TOKENS.line}` }}>
+                    <span style={{ color: TOKENS.inkSoft }}>{fmtDate(e.date)}</span>
+                    <span style={{ fontWeight: 600 }}>{e.total} g/L{e.ldl ? ` · LDL ${e.ldl}` : ''}{e.hdl ? ` · HDL ${e.hdl}` : ''}</span>
+                  </div>
+                ))}
+              </div>
+              {cholesterolSorted.length > 6 && <ToggleAll show={showAllCholesterol} onClick={() => setShowAllCholesterol(v => !v)} />}
+            </div>
+
+            <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Ic name="note" size={16} color={TOKENS.trail} />
+                <span style={sectionTitle}>Notes pour le médecin</span>
+              </div>
+              <textarea
+                value={doctorNotes}
+                onChange={e => setDoctorNotes(e.target.value)}
+                onBlur={() => save('doctor-notes', doctorNotes, setDoctorNotes)}
+                placeholder="Questions, symptômes, remarques à évoquer au prochain rendez-vous…"
+                style={{ width: '100%', boxSizing: 'border-box', minHeight: 90, fontFamily: 'Inter', fontSize: 13, padding: 12, borderRadius: 10, border: `1.5px solid ${TOKENS.line}`, resize: 'vertical', outline: 'none' }}
+              />
+            </div>
+
+            <button onClick={() => setModal('export')} style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', width: '100%', background: 'transparent', border: `1.5px solid ${TOKENS.line}`, borderRadius: 12, padding: '11px 0', fontSize: 13, color: TOKENS.inkSoft, cursor: 'pointer' }}>
+              <Ic name="download" size={14} /> Exporter mes données
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: TOKENS.panel, borderTop: `1px solid ${TOKENS.line}`, display: 'flex', padding: '8px 4px calc(8px + env(safe-area-inset-bottom))', zIndex: 40 }}>
+        <div style={{ maxWidth: 480, margin: '0 auto', display: 'flex', width: '100%' }}>
+          {TABS.map(({ id, label, icon }) => (
+            <button key={id} onClick={() => setTab(id)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', position: 'relative' }}>
+              <Ic name={icon} size={19} color={tab === id ? TOKENS.trail : TOKENS.inkSoft} />
+              {id === 'sante' && injectionDueSoon && <span style={{ position: 'absolute', top: 0, right: '28%', width: 7, height: 7, borderRadius: '50%', background: TOKENS.rose }} />}
+              <span style={{ fontSize: 9.5, fontWeight: 600, color: tab === id ? TOKENS.trail : TOKENS.inkSoft }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {modal === 'poids' && (
+        <Modal title="Nouvelle pesée" onClose={() => setModal(null)}>
+          <input autoFocus type="text" inputMode="decimal" placeholder="68.4" value={wInput} onChange={e => setWInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addWeight()} style={inputStyle} />
+          <button onClick={addWeight} style={btnStyle}>Enregistrer · {fmtDate(todayISO())}</button>
+        </Modal>
+      )}
+      {modal === 'activite' && (
+        <Modal title="Activité du jour" onClose={() => setModal(null)}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Pas (optionnel)</div>
+              <input type="text" inputMode="numeric" placeholder="9200" value={aSteps} onChange={e => setASteps(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Durée (min)</div>
+              <input type="text" inputMode="numeric" placeholder="30" value={aDuration} onChange={e => setADuration(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, margin: '10px 0 4px' }}>Note (optionnel)</div>
+          <input type="text" placeholder="Marche rapide 30 min" value={aNote} onChange={e => setANote(e.target.value)} onKeyDown={e => e.key === 'Enter' && addActivity()} style={{ ...inputStyle, fontSize: 15, fontFamily: 'Inter' }} />
+          <button onClick={addActivity} style={btnStyle}>Enregistrer · {fmtDate(todayISO())}</button>
+        </Modal>
+      )}
+      {modal === 'tension' && (
+        <Modal title="Tension artérielle" onClose={() => setModal(null)}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Systolique</div><input autoFocus type="text" inputMode="numeric" placeholder="120" value={tSys} onChange={e => setTSys(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Diastolique</div><input type="text" inputMode="numeric" placeholder="80" value={tDia} onChange={e => setTDia(e.target.value)} style={inputStyle} /></div>
+          </div>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, margin: '10px 0 4px' }}>Pouls (optionnel)</div>
+          <input type="text" inputMode="numeric" placeholder="72" value={tPulse} onChange={e => setTPulse(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTension()} style={inputStyle} />
+          <button onClick={addTension} style={btnStyle}>Enregistrer · {fmtDate(todayISO())}</button>
+        </Modal>
+      )}
+      {modal === 'cholesterol' && (
+        <Modal title="Cholestérol" onClose={() => setModal(null)}>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Total (g/L)</div>
+          <input autoFocus type="text" inputMode="decimal" placeholder="1.80" value={cTotal} onChange={e => setCTotal(e.target.value)} style={inputStyle} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>LDL (optionnel)</div><input type="text" inputMode="decimal" placeholder="1.10" value={cLdl} onChange={e => setCLdl(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>HDL (optionnel)</div><input type="text" inputMode="decimal" placeholder="0.55" value={cHdl} onChange={e => setCHdl(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCholesterol()} style={inputStyle} /></div>
+          </div>
+          <button onClick={addCholesterol} style={btnStyle}>Enregistrer · {fmtDate(todayISO())}</button>
+        </Modal>
+      )}
+      {modal === 'share-groceries' && <ShareModal title="Liste de courses" text={groceryText()} onClose={() => setModal(null)} />}
+      {modal === 'export' && <ShareModal title="Export de mes données" text={exportAllData()} onClose={() => setModal(null)} />}
+      {modal === 'mesures' && (
+        <Modal title="Mesures corporelles" onClose={() => setModal(null)}>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Tour de taille (cm)</div>
+          <input autoFocus type="text" inputMode="decimal" placeholder="82" value={mWaist} onChange={e => setMWaist(e.target.value)} style={inputStyle} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Hanches (cm)</div><input type="text" inputMode="decimal" placeholder="102" value={mHips} onChange={e => setMHips(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Poitrine (cm)</div><input type="text" inputMode="decimal" placeholder="96" value={mChest} onChange={e => setMChest(e.target.value)} style={inputStyle} /></div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Fesses (cm)</div><input type="text" inputMode="decimal" placeholder="106" value={mGlutes} onChange={e => setMGlutes(e.target.value)} style={inputStyle} /></div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Cuisses (cm)</div><input type="text" inputMode="decimal" placeholder="58" value={mThighs} onChange={e => setMThighs(e.target.value)} style={inputStyle} /></div>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Genou (cm)</div>
+            <input type="text" inputMode="decimal" placeholder="38" value={mKnee} onChange={e => setMKnee(e.target.value)} onKeyDown={e => e.key === 'Enter' && addMeasurement()} style={inputStyle} />
+          </div>
+          <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8 }}>Un seul champ suffit si tu ne veux pas tout mesurer.</div>
+          <button onClick={addMeasurement} style={btnStyle}>Enregistrer · {fmtDate(todayISO())}</button>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
