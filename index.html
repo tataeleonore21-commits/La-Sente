@@ -43,7 +43,7 @@
 
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 
 <script>
 // ---- localStorage-backed storage shim (same API shape used during development) ----
@@ -416,7 +416,7 @@ function App() {
   };
 
   const currentWeight = useMemo(() => {
-    if (!weightLog.length) return profile?.startWeight ?? 0;
+    if (!weightLog.length) return (profile && profile.startWeight) || 0;
     return [...weightLog].sort((a, b) => new Date(b.date) - new Date(a.date))[0].weight;
   }, [weightLog, profile]);
   const lastWeighIn = useMemo(() => weightLog.length ? [...weightLog].sort((a, b) => new Date(b.date) - new Date(a.date))[0].date : null, [weightLog]);
