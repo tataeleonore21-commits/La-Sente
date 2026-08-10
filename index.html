@@ -132,6 +132,33 @@ const MEAL_OFFSET = { breakfast: 0, lunch: 7, snack: 3, dinner: 13 };
 const MEAL_LABELS = { breakfast: 'Petit-déjeuner', lunch: 'Déjeuner', snack: 'Collation', dinner: 'Dîner' };
 const MEAL_ICONS = { breakfast: '☀', lunch: '◐', snack: '◇', dinner: '☾' };
 const MEAL_KCAL = { breakfast: '~350 kcal', lunch: '~500 kcal', snack: '~150 kcal', dinner: '~450 kcal' };
+const DAILY_KCAL_TARGET = 1550;
+
+const FOOD_DB = [
+  { name: 'Œufs (2)', kcal: 156 }, { name: 'Œuf (1)', kcal: 78 },
+  { name: 'Pain complet (1 tranche)', kcal: 80 }, { name: 'Avocat (1/2)', kcal: 120 },
+  { name: 'Yaourt grec nature (150g)', kcal: 100 }, { name: "Flocons d'avoine (40g)", kcal: 150 },
+  { name: 'Fruits rouges (100g)', kcal: 45 }, { name: 'Fromage blanc 0% (150g)', kcal: 65 },
+  { name: 'Tomates (1)', kcal: 20 }, { name: 'Banane (1)', kcal: 90 },
+  { name: 'Saumon fumé (30g)', kcal: 60 }, { name: 'Amandes (10)', kcal: 70 },
+  { name: 'Poulet grillé (150g)', kcal: 250 }, { name: 'Riz complet (100g cuit)', kcal: 130 },
+  { name: 'Brocolis (150g)', kcal: 50 }, { name: 'Cabillaud (150g)', kcal: 130 },
+  { name: 'Courgettes (150g)', kcal: 35 }, { name: 'Dinde (150g)', kcal: 220 },
+  { name: 'Patate douce (150g)', kcal: 130 }, { name: 'Haricots verts (150g)', kcal: 45 },
+  { name: 'Saumon (150g)', kcal: 280 }, { name: 'Lentilles (100g cuites)', kcal: 115 },
+  { name: 'Épinards (150g)', kcal: 35 }, { name: 'Crevettes (150g)', kcal: 145 },
+  { name: 'Poivrons (150g)', kcal: 45 }, { name: 'Bœuf maigre (150g)', kcal: 250 },
+  { name: 'Couac (100g)', kcal: 120 }, { name: 'Salade verte (portion)', kcal: 15 },
+  { name: 'Thon (150g)', kcal: 165 }, { name: 'Pâtes complètes (100g cuites)', kcal: 125 },
+  { name: 'Tomates cerises (100g)', kcal: 20 }, { name: 'Steak haché 5% (150g)', kcal: 230 },
+  { name: 'Sardines (100g)', kcal: 200 }, { name: 'Pois chiches (100g cuits)', kcal: 165 },
+  { name: 'Poisson blanc (150g)', kcal: 130 }, { name: 'Fromage frais léger (30g)', kcal: 40 },
+  { name: 'Jambon blanc (1 tranche)', kcal: 60 }, { name: 'Compote sans sucre (100g)', kcal: 55 },
+  { name: 'Noix (10)', kcal: 130 }, { name: 'Pomme (1)', kcal: 80 },
+  { name: 'Orange (1)', kcal: 65 }, { name: 'Pain complet (2 tranches)', kcal: 160 },
+  { name: 'Huile d\u2019olive (1 c.à.s)', kcal: 90 }, { name: 'Riz blanc (100g cuit)', kcal: 130 },
+  { name: 'Chocolat noir (1 carré)', kcal: 30 }, { name: 'Café / thé nature', kcal: 0 },
+];
 
 function defaultIdx(type, dayIndex) { return (dayIndex + MEAL_OFFSET[type]) % MEAL_ARR[type].length; }
 function getMeal(type, dayIndex, overrides) {
@@ -342,6 +369,7 @@ function App() {
   const [tensionLog, setTensionLog] = useState([]);
   const [cholesterolLog, setCholesterolLog] = useState([]);
   const [measurementsLog, setMeasurementsLog] = useState([]);
+  const [foodLog, setFoodLog] = useState([]);
   const [treatmentLog, setTreatmentLog] = useState([]);
   const [groceryChecked, setGroceryChecked] = useState({});
   const [groceryCustom, setGroceryCustom] = useState({});
@@ -357,6 +385,7 @@ function App() {
   const [showAllTension, setShowAllTension] = useState(false);
   const [showAllCholesterol, setShowAllCholesterol] = useState(false);
   const [showAllMeasurements, setShowAllMeasurements] = useState(false);
+  const [showAllFood, setShowAllFood] = useState(false);
 
   const [wInput, setWInput] = useState('');
   const [aSteps, setASteps] = useState('');
@@ -375,6 +404,9 @@ function App() {
   const [mThighs, setMThighs] = useState('');
   const [mKnee, setMKnee] = useState('');
   const [gItem, setGItem] = useState('');
+  const [foodSearch, setFoodSearch] = useState('');
+  const [foodName, setFoodName] = useState('');
+  const [foodKcal, setFoodKcal] = useState('');
 
   const [dayIndex, setDayIndex] = useState(() => Math.max(0, Math.min(PLAN_DAYS - 1, daysBetween(PLAN_START, todayISO()))));
   const [weekIndex, setWeekIndex] = useState(() => Math.max(0, Math.min(TOTAL_WEEKS - 1, Math.floor(daysBetween(PLAN_START, todayISO()) / 7))));
@@ -398,6 +430,7 @@ function App() {
         try { setTensionLog(JSON.parse((await window.storage.get('tension-log')).value)); } catch { setTensionLog([]); }
         try { setCholesterolLog(JSON.parse((await window.storage.get('cholesterol-log')).value)); } catch { setCholesterolLog([]); }
         try { setMeasurementsLog(JSON.parse((await window.storage.get('measurements-log')).value)); } catch { setMeasurementsLog([]); }
+        try { setFoodLog(JSON.parse((await window.storage.get('food-log')).value)); } catch { setFoodLog([]); }
         try { setTreatmentLog(JSON.parse((await window.storage.get('treatment-log')).value)); } catch { setTreatmentLog([]); }
         try { setGroceryChecked(JSON.parse((await window.storage.get('groceries-checked')).value)); } catch { setGroceryChecked({}); }
         try { setGroceryCustom(JSON.parse((await window.storage.get('groceries-custom')).value)); } catch { setGroceryCustom({}); }
@@ -488,6 +521,18 @@ function App() {
     await save('measurements-log', updated, setMeasurementsLog);
     setMWaist(''); setMHips(''); setMChest(''); setMGlutes(''); setMThighs(''); setMKnee(''); setModal(null);
   }
+  async function addFoodEntry() {
+    const kcal = parseFloat(foodKcal.replace(',', '.'));
+    if (!foodName.trim() || !kcal || kcal < 0) return;
+    const entry = { id: `f-${Date.now()}`, date: todayISO(), time: nowHM(), name: foodName.trim(), kcal: Math.round(kcal) };
+    const updated = [...foodLog, entry];
+    await save('food-log', updated, setFoodLog);
+    setFoodName(''); setFoodKcal(''); setFoodSearch(''); setModal(null);
+  }
+  async function removeFoodEntry(id) {
+    await save('food-log', foodLog.filter(e => e.id !== id), setFoodLog);
+  }
+  function nowHM() { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
   async function logInjection() {
     const entry = { date: todayISO() };
     const updated = [...treatmentLog.filter(e => e.date !== entry.date), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -534,6 +579,14 @@ function App() {
   const tensionChart = useMemo(() => tensionLog.slice(-14).map(e => ({ date: fmtDate(e.date), sys: e.sys, dia: e.dia })), [tensionLog]);
   const cholesterolChart = useMemo(() => cholesterolLog.slice(-14).map(e => ({ date: fmtDate(e.date), total: e.total, ldl: e.ldl, hdl: e.hdl })), [cholesterolLog]);
   const measurementsChart = useMemo(() => measurementsLog.slice(-14).map(e => ({ date: fmtDate(e.date), taille: e.waist, hanches: e.hips, poitrine: e.chest })), [measurementsLog]);
+
+  const foodToday = useMemo(() => foodLog.filter(e => e.date === planDateISO).sort((a, b) => a.time < b.time ? -1 : 1), [foodLog, planDateISO]);
+  const foodTodayTotal = useMemo(() => foodToday.reduce((s, e) => s + e.kcal, 0), [foodToday]);
+  const foodSuggestions = useMemo(() => {
+    if (!foodSearch.trim()) return [];
+    const q = foodSearch.trim().toLowerCase();
+    return FOOD_DB.filter(f => f.name.toLowerCase().indexOf(q) >= 0).slice(0, 6);
+  }, [foodSearch]);
 
   const nextInjection = useMemo(() => {
     if (!treatmentLog.length) return TREATMENT_START;
@@ -837,6 +890,35 @@ function App() {
               Déjeuners pensés froids et à emporter — prépare-les la veille pour tes journées au bloc.
             </div>
 
+            <div style={{ background: TOKENS.panel, borderRadius: 14, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 15 }}>Ce que j'ai vraiment mangé</span>
+                <button onClick={() => setModal('food')} style={{ display: 'flex', alignItems: 'center', gap: 4, background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  <Ic name="plus" size={14} /> Ajouter
+                </button>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                <span style={{ fontFamily: 'Fraunces', fontSize: 20, fontWeight: 700, color: foodTodayTotal > DAILY_KCAL_TARGET ? TOKENS.rose : TOKENS.trail }}>{foodTodayTotal} kcal</span>
+                <span style={{ fontSize: 11, color: TOKENS.inkSoft }}>sur ~{DAILY_KCAL_TARGET} kcal</span>
+              </div>
+              <div style={{ height: 6, background: TOKENS.line, borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ height: '100%', width: `${Math.min(100, (foodTodayTotal / DAILY_KCAL_TARGET) * 100)}%`, background: foodTodayTotal > DAILY_KCAL_TARGET ? TOKENS.rose : TOKENS.trail, borderRadius: 4 }} />
+              </div>
+              {foodToday.length === 0 && <div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '8px 0' }}>Rien noté pour ce jour.</div>}
+              {(showAllFood ? foodToday : foodToday.slice(0, 8)).map(e => (
+                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 2px', borderBottom: `1px solid ${TOKENS.line}`, fontSize: 13 }}>
+                  <div>
+                    <span style={{ color: TOKENS.inkSoft, fontSize: 11 }}>{e.time}</span>&nbsp;&nbsp;{e.name}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 600 }}>{e.kcal} kcal</span>
+                    <Ic name="x" size={13} color={TOKENS.inkSoft} onClick={() => removeFoodEntry(e.id)} style={{ cursor: 'pointer' }} />
+                  </div>
+                </div>
+              ))}
+              {foodToday.length > 8 && <ToggleAll show={showAllFood} onClick={() => setShowAllFood(v => !v)} />}
+            </div>
+
             {['breakfast', 'lunch', 'snack', 'dinner'].map(type => (
               <div key={type} style={{ background: TOKENS.panel, borderRadius: 14, padding: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1049,6 +1131,41 @@ function App() {
           </div>
           <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8 }}>Un seul champ suffit si tu ne veux pas tout mesurer.</div>
           <button onClick={addMeasurement} style={btnStyle}>Enregistrer · {fmtDate(todayISO())}</button>
+        </Modal>
+      )}
+
+      {modal === 'food' && (
+        <Modal title="Qu'as-tu mangé ?" onClose={() => setModal(null)}>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Chercher un aliment</div>
+          <input
+            autoFocus type="text" placeholder="riz, poulet, œuf..." value={foodSearch}
+            onChange={e => { setFoodSearch(e.target.value); setFoodName(e.target.value); setFoodKcal(''); }}
+            style={{ ...inputStyle, fontSize: 16, fontFamily: 'Inter' }}
+          />
+          {foodSuggestions.length > 0 && (
+            <div style={{ marginTop: 6, border: `1.5px solid ${TOKENS.line}`, borderRadius: 12, overflow: 'hidden' }}>
+              {foodSuggestions.map(f => (
+                <div key={f.name} onClick={() => { setFoodName(f.name); setFoodKcal(String(f.kcal)); setFoodSearch(f.name); }}
+                  style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', fontSize: 13, cursor: 'pointer', borderBottom: `1px solid ${TOKENS.line}` }}>
+                  <span>{f.name}</span><span style={{ color: TOKENS.inkSoft }}>{f.kcal} kcal</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+            <div style={{ flex: 2 }}>
+              <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Nom de l'aliment</div>
+              <input type="text" placeholder="Nom" value={foodName} onChange={e => setFoodName(e.target.value)} style={{ ...inputStyle, fontSize: 15, fontFamily: 'Inter' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Calories</div>
+              <input type="text" inputMode="numeric" placeholder="250" value={foodKcal} onChange={e => setFoodKcal(e.target.value)} onKeyDown={e => e.key === 'Enter' && addFoodEntry()} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8 }}>
+            Choisis une suggestion pour remplir les calories automatiquement, ou saisis-les toi-même si l'aliment n'est pas dans la liste.
+          </div>
+          <button onClick={addFoodEntry} style={btnStyle}>Ajouter · {nowHM()}</button>
         </Modal>
       )}
     </div>
