@@ -106,6 +106,34 @@ const CHOLESTEROL_RISK = {
   high: 'Cholestérol total élevé — facteur de risque cardiovasculaire (artères, cœur). À discuter avec le médecin.',
 };
 
+const INGREDIENT_OPTIONS = [
+  'Poulet', 'Œufs', 'Riz', 'Avocat', 'Thon', 'Saumon', 'Crevettes', 'Sardines',
+  'Légumes verts', 'Tomates', 'Oignon', 'Citron', 'Yaourt grec', 'Fromage blanc',
+  'Pâtes complètes', 'Pain complet', 'Patate douce', 'Haricots verts', 'Poivrons',
+  'Courgettes', 'Lentilles', 'Pois chiches', 'Couac', 'Carottes',
+];
+
+const RECIPES = [
+  { name: 'Bowl poulet-riz-brocolis', need: ['Poulet', 'Riz', 'Légumes verts'], steps: 'Fais cuire le riz. Grille le poulet en morceaux. Mélange avec les légumes verts vapeur et un filet de citron.', kcal: 480 },
+  { name: 'Salade thon-avocat', need: ['Thon', 'Avocat', 'Tomates'], steps: 'Émiette le thon, coupe l\u2019avocat et les tomates en dés. Mélange avec un filet de citron et un peu d\u2019huile d\u2019olive.', kcal: 420 },
+  { name: 'Omelette aux légumes', need: ['Œufs', 'Légumes verts', 'Oignon'], steps: 'Bats les œufs, fais revenir l\u2019oignon et les légumes, verse les œufs et cuis à feu doux.', kcal: 320 },
+  { name: 'Crevettes sautées riz-poivrons', need: ['Crevettes', 'Riz', 'Poivrons'], steps: 'Fais sauter les crevettes et les poivrons quelques minutes, sers sur le riz cuit.', kcal: 440 },
+  { name: 'Sardines grillées + légumes', need: ['Sardines', 'Légumes verts', 'Citron'], steps: 'Grille les sardines, sers avec les légumes vapeur et un filet de citron.', kcal: 380 },
+  { name: 'Saumon patate douce', need: ['Saumon', 'Patate douce', 'Légumes verts'], steps: 'Fais rôtir la patate douce en dés, poêle le saumon quelques minutes de chaque côté, sers avec les légumes.', kcal: 460 },
+  { name: 'Salade de pois chiches', need: ['Pois chiches', 'Tomates', 'Oignon', 'Citron'], steps: 'Mélange les pois chiches égouttés avec les tomates et l\u2019oignon émincés, assaisonne au citron.', kcal: 350 },
+  { name: 'Poulet-couac-légumes', need: ['Poulet', 'Couac', 'Légumes verts'], steps: 'Grille le poulet, sers avec le couac réhydraté et les légumes vapeur.', kcal: 470 },
+  { name: 'Bowl crevettes-avocat', need: ['Crevettes', 'Avocat', 'Riz'], steps: 'Mélange crevettes cuites, avocat en tranches et riz complet, assaisonne au citron.', kcal: 490 },
+  { name: 'Salade de lentilles', need: ['Lentilles', 'Tomates', 'Oignon', 'Citron'], steps: 'Mélange les lentilles cuites avec tomates, oignon et un filet de citron.', kcal: 340 },
+  { name: 'Œufs avocat toast', need: ['Œufs', 'Avocat', 'Pain complet'], steps: 'Fais pocher ou cuire les œufs, écrase l\u2019avocat sur le pain complet grillé, dépose les œufs dessus.', kcal: 380 },
+  { name: 'Poisson blanc et carottes', need: ['Saumon', 'Carottes', 'Légumes verts'], steps: 'Cuis le poisson à la vapeur, sers avec les carottes et légumes verts.', kcal: 350 },
+  { name: 'Pâtes au thon', need: ['Pâtes complètes', 'Thon', 'Tomates'], steps: 'Cuis les pâtes, mélange avec le thon émietté et les tomates fraîches.', kcal: 460 },
+  { name: 'Poulet haricots verts', need: ['Poulet', 'Haricots verts', 'Citron'], steps: 'Grille le poulet, sers avec les haricots verts vapeur et un filet de citron.', kcal: 400 },
+  { name: 'Salade yaourt-concombre', need: ['Yaourt grec', 'Tomates', 'Citron'], steps: 'Mélange le yaourt grec avec les tomates en dés et un filet de citron, en accompagnement léger.', kcal: 150 },
+  { name: 'Riz aux crevettes et courgettes', need: ['Riz', 'Crevettes', 'Courgettes'], steps: 'Fais sauter les crevettes et courgettes, mélange au riz cuit.', kcal: 430 },
+  { name: 'Patate douce farcie', need: ['Patate douce', 'Fromage blanc', 'Légumes verts'], steps: 'Fais cuire la patate douce au four, garnis de fromage blanc et de légumes vapeur.', kcal: 300 },
+  { name: 'Salade de pâtes légère', need: ['Pâtes complètes', 'Tomates', 'Poivrons'], steps: 'Cuis les pâtes, mélange froid avec tomates et poivrons en dés.', kcal: 380 },
+];
+
 const PLAN_DAYS = daysBetween(PLAN_START, PLAN_END) + 1;
 
 const BREAKFASTS = [
@@ -414,6 +442,8 @@ function App() {
   const [cTotal, setCTotal] = useState('');
   const [cLdl, setCLdl] = useState('');
   const [cHdl, setCHdl] = useState('');
+  const [tDate, setTDate] = useState(todayISO());
+  const [cDate, setCDate] = useState(todayISO());
   const [editTensionDate, setEditTensionDate] = useState(null);
   const [editCholesterolDate, setEditCholesterolDate] = useState(null);
   const [mWaist, setMWaist] = useState('');
@@ -426,6 +456,7 @@ function App() {
   const [foodSearch, setFoodSearch] = useState('');
   const [foodName, setFoodName] = useState('');
   const [foodKcal, setFoodKcal] = useState('');
+  const [myIngredients, setMyIngredients] = useState([]);
 
   const [dayIndex, setDayIndex] = useState(() => Math.max(0, Math.min(PLAN_DAYS - 1, daysBetween(PLAN_START, todayISO()))));
   const [weekIndex, setWeekIndex] = useState(() => Math.max(0, Math.min(TOTAL_WEEKS - 1, Math.floor(daysBetween(PLAN_START, todayISO()) / 7))));
@@ -513,33 +544,33 @@ function App() {
   }
   async function addTension() {
     const sys = parseInt(tSys, 10), dia = parseInt(tDia, 10);
-    if (!sys || !dia) return;
-    const targetDate = editTensionDate || todayISO();
-    const entry = { date: targetDate, sys, dia, pulse: tPulse ? parseInt(tPulse, 10) : null };
-    const updated = [...tensionLog.filter(e => e.date !== targetDate), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (!sys || !dia || !tDate) return;
+    const oldDate = editTensionDate;
+    const entry = { date: tDate, sys, dia, pulse: tPulse ? parseInt(tPulse, 10) : null };
+    const updated = [...tensionLog.filter(e => e.date !== tDate && e.date !== oldDate), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
     await save('tension-log', updated, setTensionLog);
-    setTSys(''); setTDia(''); setTPulse(''); setEditTensionDate(null); setModal(null);
+    setTSys(''); setTDia(''); setTPulse(''); setTDate(todayISO()); setEditTensionDate(null); setModal(null);
   }
   async function removeTension(date) {
     await save('tension-log', tensionLog.filter(e => e.date !== date), setTensionLog);
   }
   function openEditTension(e) {
-    setEditTensionDate(e.date); setTSys(String(e.sys)); setTDia(String(e.dia)); setTPulse(e.pulse ? String(e.pulse) : ''); setModal('tension');
+    setEditTensionDate(e.date); setTDate(e.date); setTSys(String(e.sys)); setTDia(String(e.dia)); setTPulse(e.pulse ? String(e.pulse) : ''); setModal('tension');
   }
   async function addCholesterol() {
     const t = parseFloat(cTotal.replace(',', '.'));
-    if (!t || t <= 0) return;
-    const targetDate = editCholesterolDate || todayISO();
-    const entry = { date: targetDate, total: t, ldl: cLdl ? parseFloat(cLdl.replace(',', '.')) : null, hdl: cHdl ? parseFloat(cHdl.replace(',', '.')) : null };
-    const updated = [...cholesterolLog.filter(e => e.date !== targetDate), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (!t || t <= 0 || !cDate) return;
+    const oldDate = editCholesterolDate;
+    const entry = { date: cDate, total: t, ldl: cLdl ? parseFloat(cLdl.replace(',', '.')) : null, hdl: cHdl ? parseFloat(cHdl.replace(',', '.')) : null };
+    const updated = [...cholesterolLog.filter(e => e.date !== cDate && e.date !== oldDate), entry].sort((a, b) => new Date(a.date) - new Date(b.date));
     await save('cholesterol-log', updated, setCholesterolLog);
-    setCTotal(''); setCLdl(''); setCHdl(''); setEditCholesterolDate(null); setModal(null);
+    setCTotal(''); setCLdl(''); setCHdl(''); setCDate(todayISO()); setEditCholesterolDate(null); setModal(null);
   }
   async function removeCholesterol(date) {
     await save('cholesterol-log', cholesterolLog.filter(e => e.date !== date), setCholesterolLog);
   }
   function openEditCholesterol(e) {
-    setEditCholesterolDate(e.date); setCTotal(String(e.total)); setCLdl(e.ldl ? String(e.ldl) : ''); setCHdl(e.hdl ? String(e.hdl) : ''); setModal('cholesterol');
+    setEditCholesterolDate(e.date); setCDate(e.date); setCTotal(String(e.total)); setCLdl(e.ldl ? String(e.ldl) : ''); setCHdl(e.hdl ? String(e.hdl) : ''); setModal('cholesterol');
   }
   async function addMeasurement() {
     const waist = mWaist ? parseFloat(mWaist.replace(',', '.')) : null;
@@ -620,6 +651,20 @@ function App() {
     const q = foodSearch.trim().toLowerCase();
     return FOOD_DB.filter(f => f.name.toLowerCase().indexOf(q) >= 0).slice(0, 6);
   }, [foodSearch]);
+
+  const matchedRecipes = useMemo(() => {
+    if (myIngredients.length === 0) return [];
+    const have = new Set(myIngredients);
+    const scored = RECIPES.map(r => {
+      const missing = r.need.filter(n => !have.has(n));
+      return { recipe: r, missing, matchCount: r.need.length - missing.length };
+    }).filter(x => x.matchCount > 0);
+    scored.sort((a, b) => {
+      if (a.missing.length !== b.missing.length) return a.missing.length - b.missing.length;
+      return b.matchCount - a.matchCount;
+    });
+    return scored.slice(0, 8);
+  }, [myIngredients]);
 
   const nextInjection = useMemo(() => {
     if (!treatmentLog.length) return TREATMENT_START;
@@ -923,6 +968,16 @@ function App() {
               Déjeuners pensés froids et à emporter — prépare-les la veille pour tes journées au bloc.
             </div>
 
+            <div style={{ background: TOKENS.ochreSoft, borderRadius: 14, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div>
+                <div style={{ fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14, color: TOKENS.ink }}>Envie de cuisiner autre chose ?</div>
+                <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 2 }}>Dis-moi ce que tu as sous la main.</div>
+              </div>
+              <button onClick={() => setModal('recipes')} style={{ background: TOKENS.ochre, color: 'white', border: 'none', borderRadius: 20, padding: '9px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                Trouver une recette
+              </button>
+            </div>
+
             <div style={{ background: TOKENS.panel, borderRadius: 14, padding: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <span style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 15 }}>Ce que j'ai vraiment mangé</span>
@@ -1024,7 +1079,7 @@ function App() {
             <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <span style={sectionTitle}>Tension artérielle</span>
-                <button onClick={() => { setEditTensionDate(null); setTSys(''); setTDia(''); setTPulse(''); setModal('tension'); }} style={addBtn}><Ic name="plus" size={14} /> Noter</button>
+                <button onClick={() => { setEditTensionDate(null); setTSys(''); setTDia(''); setTPulse(''); setTDate(todayISO()); setModal('tension'); }} style={addBtn}><Ic name="plus" size={14} /> Noter</button>
               </div>
               {tensionChart.length > 1 ? (
                 <MiniChart data={tensionChart} lines={[
@@ -1058,7 +1113,7 @@ function App() {
             <div style={{ background: TOKENS.panel, borderRadius: 16, padding: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <span style={sectionTitle}>Cholestérol</span>
-                <button onClick={() => { setEditCholesterolDate(null); setCTotal(''); setCLdl(''); setCHdl(''); setModal('cholesterol'); }} style={addBtn}><Ic name="plus" size={14} /> Noter</button>
+                <button onClick={() => { setEditCholesterolDate(null); setCTotal(''); setCLdl(''); setCHdl(''); setCDate(todayISO()); setModal('cholesterol'); }} style={addBtn}><Ic name="plus" size={14} /> Noter</button>
               </div>
               {cholesterolChart.length > 1 ? (
                 <MiniChart data={cholesterolChart} lines={[
@@ -1148,24 +1203,28 @@ function App() {
       )}
       {modal === 'tension' && (
         <Modal title={editTensionDate ? 'Modifier la tension' : 'Tension artérielle'} onClose={() => setModal(null)}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Systolique</div><input autoFocus type="text" inputMode="numeric" placeholder="120" value={tSys} onChange={e => setTSys(e.target.value)} style={inputStyle} /></div>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Date</div>
+          <input type="date" value={tDate} onChange={e => setTDate(e.target.value)} style={{ ...inputStyle, fontSize: 16, fontFamily: 'Inter' }} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Systolique</div><input type="text" inputMode="numeric" placeholder="120" value={tSys} onChange={e => setTSys(e.target.value)} style={inputStyle} /></div>
             <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Diastolique</div><input type="text" inputMode="numeric" placeholder="80" value={tDia} onChange={e => setTDia(e.target.value)} style={inputStyle} /></div>
           </div>
           <div style={{ fontSize: 12, color: TOKENS.inkSoft, margin: '10px 0 4px' }}>Pouls (optionnel)</div>
           <input type="text" inputMode="numeric" placeholder="72" value={tPulse} onChange={e => setTPulse(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTension()} style={inputStyle} />
-          <button onClick={addTension} style={btnStyle}>{editTensionDate ? 'Enregistrer les modifications' : `Enregistrer · ${fmtDate(todayISO())}`}</button>
+          <button onClick={addTension} style={btnStyle}>{editTensionDate ? 'Enregistrer les modifications' : 'Enregistrer'}</button>
         </Modal>
       )}
       {modal === 'cholesterol' && (
         <Modal title={editCholesterolDate ? 'Modifier le cholestérol' : 'Cholestérol'} onClose={() => setModal(null)}>
-          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Total (g/L)</div>
-          <input autoFocus type="text" inputMode="decimal" placeholder="1.80" value={cTotal} onChange={e => setCTotal(e.target.value)} style={inputStyle} />
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Date</div>
+          <input type="date" value={cDate} onChange={e => setCDate(e.target.value)} style={{ ...inputStyle, fontSize: 16, fontFamily: 'Inter' }} />
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, margin: '10px 0 4px' }}>Total (g/L)</div>
+          <input type="text" inputMode="decimal" placeholder="1.80" value={cTotal} onChange={e => setCTotal(e.target.value)} style={inputStyle} />
           <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
             <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>LDL (optionnel)</div><input type="text" inputMode="decimal" placeholder="1.10" value={cLdl} onChange={e => setCLdl(e.target.value)} style={inputStyle} /></div>
             <div style={{ flex: 1 }}><div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>HDL (optionnel)</div><input type="text" inputMode="decimal" placeholder="0.55" value={cHdl} onChange={e => setCHdl(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCholesterol()} style={inputStyle} /></div>
           </div>
-          <button onClick={addCholesterol} style={btnStyle}>{editCholesterolDate ? 'Enregistrer les modifications' : `Enregistrer · ${fmtDate(todayISO())}`}</button>
+          <button onClick={addCholesterol} style={btnStyle}>{editCholesterolDate ? 'Enregistrer les modifications' : 'Enregistrer'}</button>
         </Modal>
       )}
       {modal === 'share-groceries' && <ShareModal title="Liste de courses" text={groceryText()} onClose={() => setModal(null)} />}
@@ -1223,6 +1282,47 @@ function App() {
             Choisis une suggestion pour remplir les calories automatiquement, ou saisis-les toi-même si l'aliment n'est pas dans la liste.
           </div>
           <button onClick={addFoodEntry} style={btnStyle}>Ajouter · {nowHM()}</button>
+        </Modal>
+      )}
+
+      {modal === 'recipes' && (
+        <Modal title="Qu'as-tu à disposition pour cuisiner ?" onClose={() => setModal(null)}>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 10 }}>Coche ce que tu as sous la main, les recettes possibles apparaissent en dessous.</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+            {INGREDIENT_OPTIONS.map(ing => {
+              const active = myIngredients.indexOf(ing) >= 0;
+              return (
+                <button key={ing} onClick={() => setMyIngredients(active ? myIngredients.filter(x => x !== ing) : [...myIngredients, ing])} style={{
+                  padding: '7px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  border: `1.5px solid ${active ? TOKENS.trail : TOKENS.line}`,
+                  background: active ? TOKENS.trailSoft : 'white', color: active ? TOKENS.trail : TOKENS.inkSoft,
+                }}>{ing}</button>
+              );
+            })}
+          </div>
+
+          {myIngredients.length === 0 && (
+            <div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '10px 0' }}>Sélectionne au moins un ingrédient pour voir des idées.</div>
+          )}
+
+          {matchedRecipes.length === 0 && myIngredients.length > 0 && (
+            <div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '10px 0' }}>Aucune recette ne correspond pour l'instant — essaie d'ajouter d'autres ingrédients.</div>
+          )}
+
+          {matchedRecipes.map(({ recipe, missing }) => (
+            <div key={recipe.name} style={{ background: missing.length === 0 ? TOKENS.trailSoft : TOKENS.bg, borderRadius: 12, padding: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'Fraunces', fontWeight: 700, fontSize: 14 }}>{recipe.name}</span>
+                <span style={{ fontSize: 11, color: TOKENS.inkSoft }}>~{recipe.kcal} kcal</span>
+              </div>
+              {missing.length === 0 ? (
+                <div style={{ fontSize: 11, color: TOKENS.trail, fontWeight: 600, marginTop: 3 }}>Tu as tout ce qu'il faut ✓</div>
+              ) : (
+                <div style={{ fontSize: 11, color: TOKENS.ochre, marginTop: 3 }}>Il manque : {missing.join(', ')}</div>
+              )}
+              <div style={{ fontSize: 12.5, marginTop: 6, color: TOKENS.ink }}>{recipe.steps}</div>
+            </div>
+          ))}
         </Modal>
       )}
     </div>
