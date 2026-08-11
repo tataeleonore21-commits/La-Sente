@@ -83,10 +83,16 @@ const TREATMENT_START = '2026-08-16';
 const TREATMENT_INTERVAL_DAYS = 15;
 const MILESTONES = [2, 5, 7, 10, 12, 15];
 
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function dateToISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 function fmtDate(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
 function fmtDateLong(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
-function addDays(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+function addDays(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return dateToISO(d); }
 function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
 
 function tensionStatus(sys, dia) {
@@ -627,7 +633,7 @@ function App() {
   const planDate = useMemo(() => { const d = new Date(PLAN_START + 'T00:00:00'); d.setDate(d.getDate() + dayIndex); return d; }, [dayIndex]);
   const planWeekday = planDate.toLocaleDateString('fr-FR', { weekday: 'long' });
   const planDateLabel = planDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-  const planDateISO = planDate.toISOString().slice(0, 10);
+  const planDateISO = dateToISO(planDate);
   const todayDayIndex = Math.max(0, Math.min(PLAN_DAYS - 1, daysBetween(PLAN_START, todayISO())));
   const dayMeals = useMemo(() => mealsForDay(dayIndex, mealOverrides), [dayIndex, mealOverrides]);
   const weekGroceries = useMemo(() => weekIngredients(weekIndex, mealOverrides), [weekIndex, mealOverrides]);
