@@ -90,6 +90,13 @@ function todayISO() {
 function dateToISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+function momentFromHourToMeal() {
+  const h = new Date().getHours();
+  if (h < 10) return 'breakfast';
+  if (h < 14) return 'lunch';
+  if (h < 17) return 'snack';
+  return 'dinner';
+}
 function fmtDate(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); }
 function fmtDateLong(iso) { const d = new Date(iso + 'T00:00:00'); return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
 function addDays(iso, n) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return dateToISO(d); }
@@ -462,6 +469,7 @@ function App() {
   const [foodSearch, setFoodSearch] = useState('');
   const [foodName, setFoodName] = useState('');
   const [foodKcal, setFoodKcal] = useState('');
+  const [foodMealType, setFoodMealType] = useState('breakfast');
   const [myIngredients, setMyIngredients] = useState([]);
 
   const [dayIndex, setDayIndex] = useState(() => Math.max(0, Math.min(PLAN_DAYS - 1, daysBetween(PLAN_START, todayISO()))));
@@ -594,10 +602,10 @@ function App() {
   async function addFoodEntry() {
     const kcal = parseFloat(foodKcal.replace(',', '.'));
     if (!foodName.trim() || !kcal || kcal < 0) return;
-    const entry = { id: `f-${Date.now()}`, date: todayISO(), time: nowHM(), name: foodName.trim(), kcal: Math.round(kcal) };
+    const entry = { id: `f-${Date.now()}`, date: todayISO(), time: nowHM(), name: foodName.trim(), kcal: Math.round(kcal), mealType: foodMealType };
     const updated = [...foodLog, entry];
     await save('food-log', updated, setFoodLog);
-    setFoodName(''); setFoodKcal(''); setFoodSearch(''); setModal(null);
+    setFoodName(''); setFoodKcal(''); setFoodSearch(''); setFoodMealType('breakfast'); setModal(null);
   }
   async function removeFoodEntry(id) {
     await save('food-log', foodLog.filter(e => e.id !== id), setFoodLog);
@@ -987,7 +995,7 @@ function App() {
             <div style={{ background: TOKENS.panel, borderRadius: 14, padding: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <span style={{ fontFamily: 'Fraunces', fontWeight: 600, fontSize: 15 }}>Ce que j'ai vraiment mangé</span>
-                <button onClick={() => setModal('food')} style={{ display: 'flex', alignItems: 'center', gap: 4, background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                <button onClick={() => { setFoodMealType(momentFromHourToMeal()); setModal('food'); }} style={{ display: 'flex', alignItems: 'center', gap: 4, background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 20, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   <Ic name="plus" size={14} /> Ajouter
                 </button>
               </div>
@@ -999,18 +1007,28 @@ function App() {
                 <div style={{ height: '100%', width: `${Math.min(100, (foodTodayTotal / DAILY_KCAL_TARGET) * 100)}%`, background: foodTodayTotal > DAILY_KCAL_TARGET ? TOKENS.rose : TOKENS.trail, borderRadius: 4 }} />
               </div>
               {foodToday.length === 0 && <div style={{ fontSize: 13, color: TOKENS.inkSoft, textAlign: 'center', padding: '8px 0' }}>Rien noté pour ce jour.</div>}
-              {(showAllFood ? foodToday : foodToday.slice(0, 8)).map(e => (
-                <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 2px', borderBottom: `1px solid ${TOKENS.line}`, fontSize: 13 }}>
-                  <div>
-                    <span style={{ color: TOKENS.inkSoft, fontSize: 11 }}>{e.time}</span>&nbsp;&nbsp;{e.name}
+              {['breakfast', 'lunch', 'snack', 'dinner'].map(type => {
+                const entries = foodToday.filter(e => (e.mealType || 'breakfast') === type);
+                if (entries.length === 0) return null;
+                const subtotal = entries.reduce((s, e) => s + e.kcal, 0);
+                return (
+                  <div key={type} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 2px' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: TOKENS.trail }}>{MEAL_ICONS[type]} {MEAL_LABELS[type]}</span>
+                      <span style={{ fontSize: 11, color: TOKENS.inkSoft }}>{subtotal} kcal</span>
+                    </div>
+                    {entries.map(e => (
+                      <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 2px', borderBottom: `1px solid ${TOKENS.line}`, fontSize: 13 }}>
+                        <div>{e.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 600 }}>{e.kcal} kcal</span>
+                          <Ic name="x" size={13} color={TOKENS.inkSoft} onClick={() => removeFoodEntry(e.id)} style={{ cursor: 'pointer' }} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontWeight: 600 }}>{e.kcal} kcal</span>
-                    <Ic name="x" size={13} color={TOKENS.inkSoft} onClick={() => removeFoodEntry(e.id)} style={{ cursor: 'pointer' }} />
-                  </div>
-                </div>
-              ))}
-              {foodToday.length > 8 && <ToggleAll show={showAllFood} onClick={() => setShowAllFood(v => !v)} />}
+                );
+              })}
             </div>
 
             {['breakfast', 'lunch', 'snack', 'dinner'].map(type => (
@@ -1258,6 +1276,16 @@ function App() {
 
       {modal === 'food' && (
         <Modal title="Qu'as-tu mangé ?" onClose={() => setModal(null)}>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 6 }}>Quel repas ?</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, marginBottom: 12 }}>
+            {['breakfast', 'lunch', 'snack', 'dinner'].map(type => (
+              <button key={type} onClick={() => setFoodMealType(type)} style={{
+                padding: '9px 2px', borderRadius: 10, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                border: `1.5px solid ${foodMealType === type ? TOKENS.trail : TOKENS.line}`,
+                background: foodMealType === type ? TOKENS.trailSoft : 'white', color: foodMealType === type ? TOKENS.trail : TOKENS.inkSoft,
+              }}>{MEAL_ICONS[type]}<br />{MEAL_LABELS[type]}</button>
+            ))}
+          </div>
           <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Chercher un aliment</div>
           <input
             autoFocus type="text" placeholder="riz, poulet, œuf..." value={foodSearch}
