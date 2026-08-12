@@ -374,19 +374,35 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function ShareModal({ title, text, onClose }) {
+function ShareModal({ title, text, onClose, fileName }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
     try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }
     catch { setCopied(false); }
   }
+  function downloadFile() {
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName || 'export.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
   return (
     <Modal title={title} onClose={onClose}>
       <textarea readOnly value={text} style={{ width: '100%', boxSizing: 'border-box', height: 220, fontFamily: 'Inter', fontSize: 13, padding: 12, borderRadius: 10, border: `1.5px solid ${TOKENS.line}`, resize: 'none' }} onClick={e => e.target.select()} />
-      <button onClick={copy} style={{ marginTop: 12, width: '100%', background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 12, padding: '13px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+      {fileName && (
+        <button onClick={downloadFile} style={{ marginTop: 12, width: '100%', background: TOKENS.trail, color: 'white', border: 'none', borderRadius: 12, padding: '13px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <Ic name="download" size={16} /> Télécharger le fichier
+        </button>
+      )}
+      <button onClick={copy} style={{ marginTop: 8, width: '100%', background: fileName ? 'transparent' : TOKENS.trail, color: fileName ? TOKENS.inkSoft : 'white', border: fileName ? `1.5px solid ${TOKENS.line}` : 'none', borderRadius: 12, padding: '13px 0', fontSize: 15, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
         <Ic name="share" size={16} /> {copied ? 'Copié !' : 'Copier le texte'}
       </button>
-      <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8, textAlign: 'center' }}>Si le bouton ne fonctionne pas, touche le texte pour le sélectionner puis copie-le.</div>
+      <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8, textAlign: 'center' }}>Si les boutons ne fonctionnent pas, touche le texte pour le sélectionner puis copie-le.</div>
     </Modal>
   );
 }
