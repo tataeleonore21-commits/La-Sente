@@ -1300,16 +1300,27 @@ function App() {
         </Modal>
       )}
       {modal === 'share-groceries' && <ShareModal title="Liste de courses" text={groceryText()} onClose={() => setModal(null)} />}
-      {modal === 'export' && <ShareModal title="Export de mes données" text={exportAllData()} onClose={() => setModal(null)} />}
+      {modal === 'export' && <ShareModal title="Export de mes données" text={exportAllData()} fileName={`la-sente-export-${todayISO()}.json`} onClose={() => setModal(null)} />}
       {modal === 'import' && (
         <Modal title="Importer mes données" onClose={() => setModal(null)}>
           <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 8 }}>
-            Colle ici le texte que tu avais copié avec "Exporter" depuis l'autre version de l'app.
+            Choisis le fichier téléchargé avec "Exporter" depuis l'autre version de l'app.
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', boxSizing: 'border-box', background: TOKENS.trailSoft, color: TOKENS.trail, border: `1.5px dashed ${TOKENS.trail}`, borderRadius: 12, padding: '14px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            <Ic name="upload" size={16} /> Choisir un fichier
+            <input type="file" accept=".json,application/json,text/plain" style={{ display: 'none' }} onChange={e => {
+              const file = e.target.files[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = ev => setImportText(String(ev.target.result));
+              reader.readAsText(file);
+            }} />
+          </label>
+          <div style={{ fontSize: 11, color: TOKENS.inkSoft, textAlign: 'center', margin: '8px 0' }}>ou colle le texte directement</div>
           <textarea
             value={importText} onChange={e => setImportText(e.target.value)}
             placeholder='{ "profile": ... }'
-            style={{ width: '100%', boxSizing: 'border-box', height: 180, fontFamily: 'Inter', fontSize: 12, padding: 12, borderRadius: 10, border: `1.5px solid ${TOKENS.line}`, resize: 'none' }}
+            style={{ width: '100%', boxSizing: 'border-box', height: 140, fontFamily: 'Inter', fontSize: 12, padding: 12, borderRadius: 10, border: `1.5px solid ${TOKENS.line}`, resize: 'none' }}
           />
           {importStatus && (
             <div style={{ marginTop: 10, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: importStatus.ok ? TOKENS.trailSoft : TOKENS.roseSoft, color: importStatus.ok ? TOKENS.trail : TOKENS.rose }}>
