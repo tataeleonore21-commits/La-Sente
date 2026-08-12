@@ -286,7 +286,7 @@ function Ic({ name, size = 16, color = 'currentColor', style, onClick }) {
   const map = {
     plus: '+', x: '✕', check: '✓', chevronLeft: '‹', chevronRight: '›',
     chevronUp: '▴', chevronDown: '▾', clock: '🕐', calendar: '📅',
-    syringe: '💉', share: '📤', party: '🎉', refresh: '↻', download: '⬇',
+    syringe: '💉', share: '📤', party: '🎉', refresh: '↻', download: '⬇', upload: '⬆',
     note: '📝', trendUp: '↑', trendDown: '↓', minus: '–', edit: '✎',
     mountain: '⛰', cart: '🛒', utensils: '🍽', footprints: '👣', heart: '❤',
     rotate: '↺',
@@ -471,6 +471,8 @@ function App() {
   const [foodName, setFoodName] = useState('');
   const [foodKcal, setFoodKcal] = useState('');
   const [foodMealType, setFoodMealType] = useState('breakfast');
+  const [importText, setImportText] = useState('');
+  const [importStatus, setImportStatus] = useState(null);
   const [myIngredients, setMyIngredients] = useState([]);
 
   const [dayIndex, setDayIndex] = useState(() => Math.max(0, Math.min(PLAN_DAYS - 1, daysBetween(PLAN_START, todayISO()))));
@@ -725,8 +727,32 @@ function App() {
     return lines.join('\n');
   }
   function exportAllData() {
-    const dump = { profile, weightLog, activityLog, tensionLog, cholesterolLog, measurementsLog, treatmentLog, groceryChecked, groceryCustom, mealOverrides, dayStatus, milestonesSeen, doctorNotes, exportedAt: todayISO() };
+    const dump = { profile, weightLog, activityLog, tensionLog, cholesterolLog, measurementsLog, foodLog, treatmentLog, groceryChecked, groceryCustom, mealOverrides, dayStatus, milestonesSeen, doctorNotes, exportedAt: todayISO() };
     return JSON.stringify(dump, null, 2);
+  }
+
+  async function importAllData(jsonText) {
+    let dump;
+    try { dump = JSON.parse(jsonText); } catch (e) { return { ok: false, message: 'Le texte collé n\u2019est pas valide. Vérifie que tu as bien copié tout le contenu exporté.' }; }
+    try {
+      if (dump.profile) await save('profile-eleonore', dump.profile, setProfile);
+      if (dump.weightLog) await save('weight-log', dump.weightLog, setWeightLog);
+      if (dump.activityLog) await save('activity-log', dump.activityLog, setActivityLog);
+      if (dump.tensionLog) await save('tension-log', dump.tensionLog, setTensionLog);
+      if (dump.cholesterolLog) await save('cholesterol-log', dump.cholesterolLog, setCholesterolLog);
+      if (dump.measurementsLog) await save('measurements-log', dump.measurementsLog, setMeasurementsLog);
+      if (dump.foodLog) await save('food-log', dump.foodLog, setFoodLog);
+      if (dump.treatmentLog) await save('treatment-log', dump.treatmentLog, setTreatmentLog);
+      if (dump.groceryChecked) await save('groceries-checked', dump.groceryChecked, setGroceryChecked);
+      if (dump.groceryCustom) await save('groceries-custom', dump.groceryCustom, setGroceryCustom);
+      if (dump.mealOverrides) await save('meal-overrides', dump.mealOverrides, setMealOverrides);
+      if (dump.dayStatus) await save('day-status', dump.dayStatus, setDayStatus);
+      if (dump.milestonesSeen) await save('milestones-seen', dump.milestonesSeen, setMilestonesSeen);
+      if (dump.doctorNotes !== undefined) await save('doctor-notes', dump.doctorNotes, setDoctorNotes);
+      return { ok: true, message: 'Données importées avec succès.' };
+    } catch (e) {
+      return { ok: false, message: 'Une erreur est survenue pendant l\u2019import. Réessaie.' };
+    }
   }
 
   if (loading || !profile) {
@@ -1184,9 +1210,14 @@ function App() {
               />
             </div>
 
-            <button onClick={() => setModal('export')} style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', width: '100%', background: 'transparent', border: `1.5px solid ${TOKENS.line}`, borderRadius: 12, padding: '11px 0', fontSize: 13, color: TOKENS.inkSoft, cursor: 'pointer' }}>
-              <Ic name="download" size={14} /> Exporter mes données
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setModal('export')} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', background: 'transparent', border: `1.5px solid ${TOKENS.line}`, borderRadius: 12, padding: '11px 0', fontSize: 13, color: TOKENS.inkSoft, cursor: 'pointer' }}>
+                <Ic name="download" size={14} /> Exporter
+              </button>
+              <button onClick={() => { setImportText(''); setImportStatus(null); setModal('import'); }} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', background: 'transparent', border: `1.5px solid ${TOKENS.line}`, borderRadius: 12, padding: '11px 0', fontSize: 13, color: TOKENS.inkSoft, cursor: 'pointer' }}>
+                <Ic name="upload" size={14} /> Importer
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1254,6 +1285,32 @@ function App() {
       )}
       {modal === 'share-groceries' && <ShareModal title="Liste de courses" text={groceryText()} onClose={() => setModal(null)} />}
       {modal === 'export' && <ShareModal title="Export de mes données" text={exportAllData()} onClose={() => setModal(null)} />}
+      {modal === 'import' && (
+        <Modal title="Importer mes données" onClose={() => setModal(null)}>
+          <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 8 }}>
+            Colle ici le texte que tu avais copié avec "Exporter" depuis l'autre version de l'app.
+          </div>
+          <textarea
+            value={importText} onChange={e => setImportText(e.target.value)}
+            placeholder='{ "profile": ... }'
+            style={{ width: '100%', boxSizing: 'border-box', height: 180, fontFamily: 'Inter', fontSize: 12, padding: 12, borderRadius: 10, border: `1.5px solid ${TOKENS.line}`, resize: 'none' }}
+          />
+          {importStatus && (
+            <div style={{ marginTop: 10, fontSize: 12, padding: '8px 10px', borderRadius: 8, background: importStatus.ok ? TOKENS.trailSoft : TOKENS.roseSoft, color: importStatus.ok ? TOKENS.trail : TOKENS.rose }}>
+              {importStatus.message}
+            </div>
+          )}
+          <button
+            onClick={async () => { const result = await importAllData(importText); setImportStatus(result); if (result.ok) setTimeout(() => setModal(null), 1200); }}
+            style={btnStyle}
+          >
+            Importer
+          </button>
+          <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8, textAlign: 'center' }}>
+            Ça remplacera les données déjà présentes ici par celles importées.
+          </div>
+        </Modal>
+      )}
       {modal === 'mesures' && (
         <Modal title="Mesures corporelles" onClose={() => setModal(null)}>
           <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 4 }}>Tour de taille (cm)</div>
