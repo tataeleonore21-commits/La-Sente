@@ -621,7 +621,7 @@ function App() {
   async function addFoodEntry() {
     const kcal = parseFloat(foodKcal.replace(',', '.'));
     if (!foodName.trim() || !kcal || kcal < 0) return;
-    const entry = { id: `f-${Date.now()}`, date: todayISO(), time: nowHM(), name: foodName.trim(), kcal: Math.round(kcal), mealType: foodMealType };
+    const entry = { id: `f-${Date.now()}`, date: planDateISO, time: nowHM(), name: foodName.trim(), kcal: Math.round(kcal), mealType: foodMealType };
     const updated = [...foodLog, entry];
     await save('food-log', updated, setFoodLog);
     setFoodName(''); setFoodKcal(''); setFoodSearch(''); setFoodMealType('breakfast'); setModal(null);
@@ -1360,7 +1360,7 @@ function App() {
       )}
 
       {modal === 'food' && (
-        <Modal title="Qu'as-tu mangé ?" onClose={() => setModal(null)}>
+        <Modal title={`Qu'as-tu mangé le ${fmtDateLong(planDateISO)} ?`} onClose={() => setModal(null)}>
           <div style={{ fontSize: 12, color: TOKENS.inkSoft, marginBottom: 6 }}>Quel repas ?</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, marginBottom: 12 }}>
             {['breakfast', 'lunch', 'snack', 'dinner'].map(type => (
@@ -1400,7 +1400,7 @@ function App() {
           <div style={{ fontSize: 11, color: TOKENS.inkSoft, marginTop: 8 }}>
             Choisis une suggestion pour remplir les calories automatiquement, ou saisis-les toi-même si l'aliment n'est pas dans la liste.
           </div>
-          <button onClick={addFoodEntry} style={btnStyle}>Ajouter · {nowHM()}</button>
+          <button onClick={addFoodEntry} style={btnStyle}>Ajouter</button>
         </Modal>
       )}
 
